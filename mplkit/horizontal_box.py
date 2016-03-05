@@ -19,6 +19,9 @@ class HorizontalBox(object):
         w = 0
         h = 0
 
+        if len(self._widgets) == 0:
+            return w,h
+
         for g in self._widgets:
             tw, th = g.size()
 

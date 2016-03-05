@@ -19,6 +19,9 @@ class VerticalBox(object):
         w = 0
         h = 0
 
+        if len(self._widgets) == 0:
+            return w,h
+
         for g in self._widgets:
             tw, th = g.size()
 
@@ -32,7 +35,7 @@ class VerticalBox(object):
 
     def _render(self, fig, x, y):
 
-        for w in self._widgets:
+        for w in self._widgets[::-1]:
             w._render(fig, x, y)
 
             y += w.size()[1] + self._padding

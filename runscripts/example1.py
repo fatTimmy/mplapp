@@ -22,7 +22,7 @@ def main():
         labels = []
 
         for va in vas:
-            labels.append(Label(2,2, '+', ha = ha, va = va, ec = 'w'))
+            labels.append(Label(2,2, 'Hello!', ha = ha, va = va, ec = 'w'))
 
         hb = HBox()
         hb.append(*labels)
@@ -57,7 +57,21 @@ def main():
 
     hbox.append(l1, bl.button(), l2)
 
-    w = Window(hbox, 'Push Button Demo')
+    w = Window(hbox, 'HBox Buttons')
+
+    # window 3
+
+    l1 = Label(3,3, 'Label Top')
+
+    bl = MyButtonListener()
+
+    l2 = Label(3,3, 'Label Bottom')
+
+    vbox = VBox()
+
+    vbox.append(l1, bl.button(), l2)
+
+    w = Window(vbox, 'VBox Buttons')
 
     plt.show()
 
