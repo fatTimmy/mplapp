@@ -18,6 +18,19 @@ class Label(object):
         return (self._width, self._height)
 
 
+    def text(self, new_text = None):
+
+        if self._text is None:
+            raise RuntimeError('This label ("%s") has been rendered yet')
+
+        if new_text is None:
+            return self._text.get_text()
+
+        else:
+            self._text.set_text(new_text)
+            self._axes.figure.canvas.draw()
+
+
     def _render(self, fig, x, y):
 
         # convert size to percent of figure
@@ -97,7 +110,9 @@ class Label(object):
         x = ha_to_x[ha]
         y = va_to_y[va]
 
-        ax.text(x, y, self._str, **self._kwargs)
+        self._text = ax.text(x, y, self._str, **self._kwargs)
+
+        self._str = None
 
         self._axes = ax
 

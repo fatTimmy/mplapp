@@ -10,6 +10,8 @@ from mplkit.button import Button
 
 def main():
 
+    # window 1
+
     has = ['left', 'center', 'right']
     vas = ['top', 'center', 'bottom']
 
@@ -29,17 +31,31 @@ def main():
 
     w = Window(vbox, '3x3 label boxes')
 
-    hbox = HBox()
+    # window 2
 
-    def on_click(event):
-        print('on_click()!')
+    class MyButtonListener(object):
 
-    button = Button(3,3, 'ClickMe', on_click)
+        def __init__(self):
+            self._button = Button(3,3, 'ClickMe (0)', self.on_click)
+            self._count = 0
+
+        def button(self):
+            return self._button
+
+        def on_click(self, event):
+            self._count += 1
+            self._button.text('ClickMe (%d)' % self._count)
+
 
     l1 = Label(3,3, 'Label Left')
+
+    bl = MyButtonListener()
+
     l2 = Label(3,3, 'Label Right')
 
-    hbox.append(l1, button, l2)
+    hbox = HBox()
+
+    hbox.append(l1, bl.button(), l2)
 
     w = Window(hbox, 'Push Button Demo')
 
