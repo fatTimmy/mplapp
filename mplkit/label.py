@@ -12,6 +12,7 @@ class Label(object):
         self._kwargs = kwargs
 
         self._axes = None
+        self._colors = ()
 
 
     def size(self):
@@ -45,6 +46,8 @@ class Label(object):
 
         ax = fig.add_axes([x, y, w, h], xticks=[], yticks=[])
 
+        # background color of label: facecolor
+
         fc = fig.get_facecolor()
 
         if 'fc' in self._kwargs:
@@ -57,6 +60,8 @@ class Label(object):
 
         ax.set_axis_bgcolor(fc)
 
+        # edge color of label: edgecolor
+
         ec = fc
 
         if 'ec' in self._kwargs:
@@ -67,10 +72,17 @@ class Label(object):
             ec = self._kwargs['edgecolor']
             del self._kwargs['edgecolor']
 
-        ax.spines['bottom'].set_color(ec)
-        ax.spines['top'].set_color(ec)
-        ax.spines['left'].set_color(ec)
-        ax.spines['right'].set_color(ec)
+        for side in ['bottom', 'top', 'left', 'right']:
+            ax.spines[side].set_color(ec)
+
+        # text color of label
+
+        color = 'black'
+
+        if 'color' in self._kwargs:
+            color = self._kwargs['color']
+
+        self._colors = (ec, fc, color)
 
         # defaults
 

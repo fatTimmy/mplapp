@@ -1,3 +1,5 @@
+import time
+
 import matplotlib
 import matplotlib.pyplot as plt
 
@@ -8,8 +10,12 @@ from mplkit.vertical_box import VerticalBox as VBox
 from mplkit.label import Label
 from mplkit.button import Button
 
+
 def main():
 
+    bw,bh = 1.5,1.5
+
+    #--------------------------------------------------------------------------
     # window 1
 
     has = ['left', 'center', 'right']
@@ -22,7 +28,7 @@ def main():
         labels = []
 
         for va in vas:
-            labels.append(Label(2,2, 'Hello!', ha = ha, va = va, ec = 'w'))
+            labels.append(Label(bw,bh, 'Hello!', ha = ha, va = va, ec = 'w'))
 
         hb = HBox()
         hb.append(*labels)
@@ -31,45 +37,77 @@ def main():
 
     w = Window(vbox, '3x3 label boxes')
 
+    #--------------------------------------------------------------------------
     # window 2
 
     class MyButtonListener(object):
 
-        def __init__(self):
-            self._button = Button(3,3, 'ClickMe (0)', self.on_click)
+        def __init__(self, **kwargs):
+            self._button = Button(bw,bh, 'ClickMe (0)', self._on_click, **kwargs)
             self._count = 0
 
         def button(self):
             return self._button
 
-        def on_click(self, event):
+        def _on_click(self, _):
+
             self._count += 1
-            self._button.text('ClickMe (%d)' % self._count)
+
+            if self._count % 5 == 0:
+                self._button.text('Disabled')
+                self._button.disable()
+            else:
+                self._button.text('ClickMe (%d)' % self._count)
 
 
-    l1 = Label(3,3, 'Label Left')
+    class ButtonEnabler(object):
 
-    bl = MyButtonListener()
+        def __init__(self, target_buttons, **kwargs):
 
-    l2 = Label(3,3, 'Label Right')
+            if not isinstance(target_buttons, list):
+                target_buttons = [target_buttons]
+
+            self._targets = target_buttons
+            self._button = Button(bw,bh, 'Enable', self._on_click, **kwargs)
+
+
+        def button(self):
+            return self._button
+
+
+        def _on_click(self, _):
+
+            for b in self._targets:
+                b.text('ClickMe')
+                b.enable()
+
+
+    l1 = Label(bw,bh, 'Label Left')
+
+    b1 = MyButtonListener()
+    b2 = ButtonEnabler(b1.button())
+
+    l2 = Label(bw,bh, 'Label Right')
 
     hbox = HBox()
 
-    hbox.append(l1, bl.button(), l2)
+    hbox.append(l1, b1.button(), b2.button(), l2)
 
     w = Window(hbox, 'HBox Buttons')
 
+    #--------------------------------------------------------------------------
     # window 3
 
-    l1 = Label(3,3, 'Label Top')
+    l1 = Label(bw,bh, 'Label Top')
 
-    bl = MyButtonListener()
+    b1 = MyButtonListener(fc = 'blue', ec = 'red', color = 'white')
+    b2 = ButtonEnabler(b1.button())
 
-    l2 = Label(3,3, 'Label Bottom')
+    l2 = Label(bw,bh, 'Label Bottom')
 
     vbox = VBox()
 
-    vbox.append(l1, bl.button(), l2)
+    vbox.append(l1, b1.button(), b2.button(), l2)
 
     w = Window(vbox, 'VBox Buttons')
 
