@@ -9,6 +9,7 @@ from mplkit.horizontal_box import HorizontalBox as HBox
 from mplkit.vertical_box import VerticalBox as VBox
 from mplkit.label import Label
 from mplkit.button import Button
+from mplkit.slider import Slider
 
 
 def main():
@@ -82,34 +83,86 @@ def main():
                 b.enable()
 
 
-    l1 = Label(bw,bh, 'Label Left')
+    l1 = Label(bw,1.0, 'Label Left\nva=top', ec = 'w')
 
     b1 = MyButtonListener()
     b2 = ButtonEnabler(b1.button())
 
-    l2 = Label(bw,bh, 'Label Right')
+    l2 = Label(bw, 1.0, 'Label Right\nva=bottom', ec = 'w')
 
     hbox = HBox()
 
-    hbox.append(l1, b1.button(), b2.button(), l2)
+    hbox.append(l1, 'top', b1.button(), b2.button(), l2, 'bottom')
 
     w = Window(hbox, 'HBox Buttons')
 
     #--------------------------------------------------------------------------
     # window 3
 
-    l1 = Label(bw,bh, 'Label Top')
+    l1 = Label(1.0,bh, 'Label Top\nha=left', ec = 'w')
 
     b1 = MyButtonListener(fc = 'blue', ec = 'red', color = 'white')
     b2 = ButtonEnabler(b1.button())
 
-    l2 = Label(bw,bh, 'Label Bottom')
+    l2 = Label(1.0,bh, 'Label Bottom\nha=right', ec = 'w')
 
     vbox = VBox()
 
-    vbox.append(l1, b1.button(), b2.button(), l2)
+    vbox.append(l1, 'left', b1.button(), b2.button(), l2, 'right')
 
     w = Window(vbox, 'VBox Buttons')
+
+    #--------------------------------------------------------------------------
+    # window 4
+
+    class HSlider(object):
+
+        def __init__(self):
+
+            s = Slider(3, 0.25, notify = self._on_notify)
+
+            self._label = Label(0.40, 0.25, '0.50')
+
+            self._hbox = HBox()
+
+            self._hbox.append(s, self._label)
+
+        def hbox(self):
+            return self._hbox
+
+        def _on_notify(self, value):
+            self._label.text('%.2f' % value)
+
+
+    class VSlider(object):
+
+        def __init__(self):
+
+            s = Slider(0.25, 3.0, notify = self._on_notify)
+
+            spacer = Label(0.40, 0.25, '') # keeps the slider centered
+
+            self._label = Label(0.40, 0.25, '0.50')
+
+            self._hbox = HBox()
+
+            self._hbox.append(spacer, s, self._label)
+
+        def hbox(self):
+            return self._hbox
+
+        def _on_notify(self, value):
+            self._label.text('%.2f' % value)
+
+
+    hs = HSlider()
+    vs = VSlider()
+
+    vbox = VBox()
+
+    vbox.append(hs.hbox(), vs.hbox())
+
+    w = Window(vbox, 'Sliders')
 
     plt.show()
 

@@ -1,14 +1,50 @@
 
 class VerticalBox(object):
 
+    ALIGNMENT = ['left', 'center', 'right']
 
     def __init__(self, padding = 0.05):
         self._widgets = []
         self._padding = padding
+        self._width = 0
+        self._height = 0
 
 
-    def append(self, *widgets):
-        self._widgets.extend(widgets)
+    def append(self, *args):
+        """
+        Append widgets in this vertical box.  A widget may be followed by a
+        string specifying the horizontal alignment within this box.  Valid
+        values include ['left', 'center', 'right'], the default is 'center'.
+        """
+
+        N = len(args)
+
+        i = 0
+
+        while i < N:
+
+            widget = args[i]
+
+            if i + 1 < N and isinstance(args[i + 1], str):
+                ha = args[i + 1]
+
+                if ha not in self.ALIGNMENT:
+                    raise ValueError('invalid alignment "%s"' % ha)
+
+                i += 2
+
+            else:
+                ha = 'center'
+
+                i += 1
+
+            w, h = widget.size()
+
+            self._width = max(self._width, w)
+
+            self._height += h + self._padding
+
+            self._widgets.append( (widget, ha) )
 
 
     def size(self):
@@ -16,26 +52,28 @@ class VerticalBox(object):
         Returns the minimum size of this box in inches.
         """
 
-        w = 0
-        h = 0
-
-        if len(self._widgets) == 0:
-            return w,h
-
-        for g in self._widgets:
-            tw, th = g.size()
-
-            h += th + self._padding
-            w = max(w, tw)
-
-        h -= self._padding
-
-        return w,h
+        return self._width, self._height - self._padding
 
 
     def _render(self, fig, x, y):
 
-        for w in self._widgets[::-1]:
-            w._render(fig, x, y)
+        for widget, ha in self._widgets[::-1]:
 
-            y += w.size()[1] + self._padding
+            w, h = widget.size()
+
+            if ha == 'left':
+                widget._render(fig, x, y)
+
+            elif ha == 'center':
+
+                delta = self._width - w
+
+                widget._render(fig, x + delta / 2.0, y)
+
+            elif ha == 'right':
+
+                delta = self._width - w
+
+                widget._render(fig, x + delta, y)
+
+            y += h + self._padding
