@@ -1,8 +1,10 @@
 mplkit
 ======
 
-A gui toolkit for creating a small set of widgets using Matplotlib, should have
-the same look and feel and API regarless of the Matplotlib backend.
+A GUI toolkit for creating a small set of widgets using Matplotlib.  It mostly
+aims at providing widget layout with horizontal and vertical boxes and should
+have the same look and feel, as well as API, regardless of the Matplotlib
+backend in use.
 
 Widgets
 =======
@@ -20,8 +22,8 @@ WORK IN PROGRESS!!!
 Screenshots
 ===========
 
-Example 1: Some labels and buttons with horizonal and vertial boxes
--------------------------------------------------------------------
+Example 1: Some labels and buttons with horizontal and vertical boxes
+---------------------------------------------------------------------
 
 .. code-block:: console
 
