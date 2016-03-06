@@ -45,6 +45,8 @@ class Label(object):
         h = self._height / H
 
         ax = fig.add_axes([x, y, w, h], xticks=[], yticks=[])
+        ax.set_xlim([0, w])
+        ax.set_ylim([0, 1])
 
         # background color of label: facecolor
 
