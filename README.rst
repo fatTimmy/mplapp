@@ -37,4 +37,4 @@ Example 2: An interactive plot with 2 sliders
 
     $ PYTHONPATH=`pwd` python runscripts/gaussian_demo.py
 
-.. image:: example2.jpg
+.. image:: example2.png
