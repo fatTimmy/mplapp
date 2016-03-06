@@ -1,15 +1,17 @@
 mplkit
 ======
 
-A gui toolkit for creating a small set of widgets using Matplotlib.
+A gui toolkit for creating a small set of widgets using Matplotlib, should have
+the same look and feel and API regarless of the Matplotlib backend.
 
 Widgets
 =======
 
+* Button
 * Horizontal Box
-* Vertical Box
 * Label
-* push Button
+* Slider
+* Vertical Box
 * Window
 
 WORK IN PROGRESS!!!
@@ -17,6 +19,6 @@ WORK IN PROGRESS!!!
 Screenshots
 ===========
 
-Horizontal box with two labels and a push button in the center:
+Some examples:
 
-.. image:: example1.png
+.. image:: example1.jpg
