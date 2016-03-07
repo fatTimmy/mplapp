@@ -1,5 +1,10 @@
 import numpy as np
+
 from matplotlib import rcParams
+from matplotlib.patches import Rectangle
+
+import pyperclip
+
 
 from mplkit.label import Label
 
@@ -11,6 +16,7 @@ class LineEdit(Label):
 
     IDLE = 0
     TYPING = 1
+    SELECTING = 2
 
     def __init__(self, width, height, text, notify = None, **kwargs):
 
@@ -26,6 +32,7 @@ class LineEdit(Label):
         color = 'black'
         ha = 'left'
         pad_left = 0.025 # inches
+        highlight = [0.5859, 0.6406, 1.0]
 
         if 'ec' not in kwargs and 'edgecolor' not in kwargs:
             kwargs['ec'] = ec
@@ -42,6 +49,16 @@ class LineEdit(Label):
         if 'pad_left' in kwargs:
             pad_left = kwargs['pad_left']
             del kwargs['pad_left']
+
+        if 'hl' in kwargs:
+            highlight = kwargs['hl']
+            del kwargs['hl']
+
+        if 'highlight' in kwargs:
+            highlight = kwargs['highlight']
+            del kwargs['highlight']
+
+        self._hl_color = highlight
 
         self._kwargs = kwargs
 
@@ -64,9 +81,8 @@ class LineEdit(Label):
                 self._rc_keys_to_disable.append(key)
 
         self._cursor = None
-
         self._orig_text = None
-
+        self._highlight = None
 
 
     def size(self):
@@ -100,7 +116,10 @@ class LineEdit(Label):
             'button_press_event', self._on_mouse_down)
 
         self._axes.figure.canvas.mpl_connect(
-            'key_press_event', self._on_key_down)
+            'key_press_event', self._on_key_press)
+
+        self._axes.figure.canvas.mpl_connect(
+            'key_release_event', self._on_key_release)
 
 
     def _render_cursor(self, x, units):
@@ -126,6 +145,12 @@ class LineEdit(Label):
 
         self._cursor.set_visible(True)
 
+        if self._mode == self.SELECTING:
+
+            width = xdata - self._hl_x0
+            self._highlight.set_width(width)
+
+
         self._axes.figure.canvas.draw()
 
 
@@ -133,29 +158,54 @@ class LineEdit(Label):
 
         self._mode = self.TYPING
         self._render_cursor(x_pixel, 'pixel')
-        self._orig_text = self.text()
+
+        if self._orig_text is None:
+            self._orig_text = str(self.text())
 
 
-    def _stop_typing(self, notify = True):
+    def _stop_typing(self, key):
 
-        notify = False
-
-        if self._mode == self.TYPING:
-            """
-            Reactive standandard keymap
-            """
-
-            for key in self._rc_keys_disable:
-                rcParams[key] = self._rc_keys_disable[key]
-
-            notify = True
+        for key in self._rc_keys_disable:
+            rcParams[key] = self._rc_keys_disable[key]
 
         self._mode = self.IDLE
         self._cursor.set_visible(False)
         self._axes.figure.canvas.draw()
 
-        if notify and self._notify:
+        if self._notify and key == 'enter':
             self._notify(self.text())
+
+
+    def _start_selecting(self):
+
+        x, _ = self._cursor.get_data()
+        self._mode = self.SELECTING
+        self._hl_x0 = x[0]
+
+        if self._highlight is None:
+
+            pos = self._hl_x0, 0
+
+            r = Rectangle(pos, 0, 1, ec = self._hl_color, fc = self._hl_color)
+
+            self._highlight = r
+
+            self._axes.add_patch(r)
+
+        else:
+            self._highlight.set_x(self._hl_x0)
+            self._highlight.set_width(0)
+            self._highlight.set_visible(True)
+
+        self._axes.figure.canvas.draw()
+
+
+    def _stop_selecting(self):
+
+        self._mode = self.TYPING
+        if self._highlight:
+            self._highlight.set_visible(False)
+            self._axes.figure.canvas.draw()
 
 
     def _on_mouse_down(self, event):
@@ -163,11 +213,7 @@ class LineEdit(Label):
         # FIXME: add enable/disable flags
 
         if event.inaxes != self._axes:
-            self._stop_typing()
             return
-
-#~        if event.canvas.mouse_grabber != self._axes:
-#~            event.canvas.grab_mouse(self._axes)
 
         if self._mode == self.IDLE:
 
@@ -179,19 +225,33 @@ class LineEdit(Label):
                 self._rc_keys_disable[key] = rcParams[key]
                 rcParams[key] = []
 
-        self._start_typing(event.x)
+        if event.dblclick:
+
+            self._cursor_idx = 0
+
+            self._render_cursor(self._cursor_idx, 'index')
+
+            self._start_selecting()
+
+            self._cursor_idx = len(self.text())
+
+            self._render_cursor(self._cursor_idx, 'index')
+
+            self._mode = self.TYPING
+
+        else:
+            self._start_typing(event.x)
 
 
-    def _on_key_down(self, event):
+
+    def _on_key_press(self, event):
 
         # FIXME: ignore if disabled
 
-        if self._mode != self.TYPING:
+        if self._mode == self.IDLE:
             return
 
         key = event.key
-
-#~        print "key = ", repr(key)
 
         # normal keys are length 1
 
@@ -230,20 +290,12 @@ class LineEdit(Label):
 
         elif key == 'delete':
 
-            N = len(self.text())
-
-            if self._cursor_idx >= N:
-                return
-
-            s = self.text()
-
-            s = s[0:self._cursor_idx] + s[self._cursor_idx+1:]
-
-            self.text(s)
-
-            self._render_cursor(self._cursor_idx, 'index')
+            self._do_delete()
 
         elif key == 'left':
+
+            if self._mode != self.SELECTING:
+                self._stop_selecting()
 
             if self._cursor_idx == 0:
                 return
@@ -253,6 +305,9 @@ class LineEdit(Label):
             self._render_cursor(self._cursor_idx, 'index')
 
         elif key == 'right':
+
+            if self._mode != self.SELECTING:
+                self._stop_selecting()
 
             N = len(self.text())
 
@@ -265,6 +320,9 @@ class LineEdit(Label):
 
         elif key == 'home':
 
+            if self._mode != self.SELECTING:
+                self._stop_selecting()
+
             if self._cursor_idx == 0:
                 return
 
@@ -273,6 +331,9 @@ class LineEdit(Label):
             self._render_cursor(self._cursor_idx, 'index')
 
         elif key == 'end':
+
+            if self._mode != self.SELECTING:
+                self._stop_selecting()
 
             N = len(self.text())
 
@@ -284,15 +345,115 @@ class LineEdit(Label):
             self._render_cursor(self._cursor_idx, 'index')
 
         elif key == 'enter':
-            self._stop_typing()
+            self._stop_typing(key)
 
         elif key == 'escape':
-            self._stop_typing()
+            self._stop_selecting()
+            self._stop_typing(key)
             self.text(self._orig_text)
+            self._orig_text = None
+            self._mode = self.IDLE
+
+        elif key == 'shift':
+            self._start_selecting()
+
+        elif key in ['ctrl+c', 'ctrl+x']:
+
+            start, end = self._highlight.get_window_extent().get_points()
+
+            x0, x1 = start[0], end[0]
+
+            i0, _ = _search_text(self._text, x0, 'pixel')
+            i1, _ = _search_text(self._text, x1, 'pixel')
+
+            delta = i1 - i0
+
+            if delta == 0:
+                return
+
+            s = self.text()
+
+            pyperclip.copy(s[i0:i1])
+
+            if key == 'ctrl+x':
+                self._do_delete()
+
+
+        elif key == 'ctrl+v':
+
+            temp = pyperclip.paste()
+
+            i0, i1 = self._get_selected_range()
+
+            s = str(self.text())
+
+            s = s[0:i0] + temp + s[i1:]
+
+            self.text(s)
+
+            self._cursor_idx = i0 + len(temp)
+
+            self._render_cursor(self._cursor_idx, 'index')
+
+            self._stop_selecting()
 
         else:
-            print "unhandled = ", repr(key)
+#~            print "unhandled = ", repr(key)
+            pass
 
+
+    def _on_key_release(self, event):
+
+        key = event.key
+
+        if key in 'shift' and self._mode == self.SELECTING:
+            self._mode = self.TYPING
+
+    def _get_selected_range(self):
+
+        if self._highlight and self._highlight.get_visible():
+
+            start, end = self._highlight.get_window_extent().get_points()
+
+            x0, x1 = start[0], end[0]
+
+            i0, _ = _search_text(self._text, x0, 'pixel')
+            i1, _ = _search_text(self._text, x1, 'pixel')
+
+            return i0, i1
+
+        else:
+            return self._cursor_idx, self._cursor_idx
+
+
+    def _do_delete(self):
+        """
+        called by pressing the delete key or ctrl+x
+        """
+
+        N = len(self.text())
+
+        s = self.text()
+
+        i0, i1 = self._get_selected_range()
+
+        if self._cursor_idx > i0:
+            self._cursor_idx = i0
+
+        if i1 > i0:
+            s = s[0:i0] + s[i1:]
+
+        elif i0 == i1:
+            s = s[0:i0] + s[i0+1:]
+
+        else:
+            s = s[0:i0] + s[i1:]
+
+        if self._highlight:
+            self._stop_selecting()
+
+        self._render_cursor(self._cursor_idx, 'index')
+        self.text(s)
 
 
 #------------------------------------------------------------------------------
@@ -371,6 +532,12 @@ def _search_text_index(text, x_idx):
     s = orig.replace(' ', ',')
 
     N = len(s)
+
+    if x_idx < 0:
+        raise IndexError('x_idx < 0 (%d < 0)' % x_idx)
+
+    if x_idx > N:
+        raise IndexError('x_idx > N (%d > %d)' % (x_idx, N))
 
     x_positions = []
 
