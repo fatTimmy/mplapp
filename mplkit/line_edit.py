@@ -31,7 +31,7 @@ class LineEdit(Label):
         fc = 'white'
         color = 'black'
         ha = 'left'
-        pad_left = 0.025 # inches
+        pad_left = 0.07 # inches
         highlight = [0.5859, 0.6406, 1.0]
 
         if 'ec' not in kwargs and 'edgecolor' not in kwargs:

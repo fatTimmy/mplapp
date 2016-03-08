@@ -45,8 +45,8 @@ class Label(object):
         h = self._height / H
 
         ax = fig.add_axes([x, y, w, h], xticks=[], yticks=[])
-        ax.set_xlim([0, w])
-        ax.set_ylim([0, 1])
+        ax.set_xlim([0, self._width])
+        ax.set_ylim([0, self._height])
 
         # background color of label: facecolor
 
@@ -112,13 +112,13 @@ class Label(object):
         # based on alignment, set x,y
 
         ha_to_x = dict(
-            center = 0.5,
+            center = self._width / 2.0,
             left = 0.0,
-            right = 1.0)
+            right = self._width)
 
         va_to_y = dict(
-            center = 0.5,
-            top = 1.0,
+            center = self._height / 2,
+            top = self._height,
             bottom = 0.0)
 
         x = ha_to_x[ha]
