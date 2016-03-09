@@ -64,7 +64,7 @@ class LineEdit(Label):
 
         self._pad_left = pad_left
 
-        if notify and not iscallable(notify):
+        if notify and not callable(notify):
             raise ValueError('notify must be a callable function')
 
         self._notify = notify
@@ -165,15 +165,15 @@ class LineEdit(Label):
 
     def _stop_typing(self, key):
 
-        for key in self._rc_keys_disable:
-            rcParams[key] = self._rc_keys_disable[key]
-
         self._mode = self.IDLE
         self._cursor.set_visible(False)
         self._axes.figure.canvas.draw()
 
         if self._notify and key == 'enter':
             self._notify(self.text())
+
+        for key in self._rc_keys_disable:
+            rcParams[key] = self._rc_keys_disable[key]
 
 
     def _start_selecting(self):

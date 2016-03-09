@@ -1,3 +1,5 @@
+import enum
+
 import numpy as np
 
 from matplotlib import rcParams
@@ -10,12 +12,16 @@ import pyperclip
 from mplkit.line_edit import LineEdit
 
 
+_DEV = True
+
+
 class ComboBox(LineEdit):
     """
     A ComboxBox, upon clicking button, drops down a list of items to choose.
 
     Items can be edited also.
     """
+
 
     def __init__(
             self,
@@ -33,7 +39,18 @@ class ComboBox(LineEdit):
             text = ''
 
         super(ComboBox,self).__init__(
-            width, height, text, edit_notify, **kwargs)
+            width, height, text, self._on_edit_notify, **kwargs)
+
+        self._text_list = text_list
+
+        self._edit_notify = edit_notify
+        self._selection_notify = selection_notify
+
+        if edit_notify and not callable(edit_notify):
+            raise RuntimeError('edit_notify must be a callable function')
+
+        if selection_notify and not callable(selection_notify):
+            raise RuntimeError('selection_notify must be a callable function')
 
         #---------------------------------------------------------------------
         # additional items
@@ -44,7 +61,14 @@ class ComboBox(LineEdit):
 
         self._select_axes = None
         self._select_highlight = None # just a rectangle
-        self._select_button = None    # Just a rectangle
+        self._select_posx = None
+        self._select_entries = []
+
+        self._state = State.IDLE
+
+        self._n_lines = 5
+
+        self._mouse_motion_cid = None
 
 
     def _render(self, fig, x, y):
@@ -59,7 +83,7 @@ class ComboBox(LineEdit):
 
         W, H = fig.get_size_inches()
 
-        h = 10 * self._height
+        h = self._n_lines * self._height
 
         y -= h
 
@@ -76,7 +100,7 @@ class ComboBox(LineEdit):
         ax = fig.add_axes([x, y, w, h], xticks=[], yticks=[])
 
         ax.set_xlim([0, self._width])
-        ax.set_ylim([0, 10 * self._height])
+        ax.set_ylim([0, self._n_lines * self._height])
 
         ax.set_axis_bgcolor('white')
 
@@ -89,13 +113,15 @@ class ComboBox(LineEdit):
 
     def _render_dropdown_button(self, fig):
 
-        w, h = 0.25, self._height * 0.25
+        w, h = 0.25, 0.125
 
         hw = w / 2.0
         hh = h / 2.0
 
         x = self._width - w - 0.02
         y = (self._height - h) / 2.0
+
+        self._select_posx = x + hw
 
         # Three point polygon:
         #
@@ -118,10 +144,177 @@ class ComboBox(LineEdit):
 
         self._axes.add_patch(patch)
 
-        self._select_button = patch
+
+    def _change_state(self, new_state):
+
+        if self._state == new_state:
+            raise RuntimeError("Already in state %s" % new_state)
+
+        if self._state == State.IDLE:
+
+            if new_state == State.DROP_SELECT:
+                self._select_axes.set_visible(True)
+
+                x = self._pad_left
+                y = ((self._n_lines - 1) * self._height)
+
+                #--------------------------------------------------------------
+                # create highlight
+
+                if self._select_highlight is None:
+
+                    self._select_highlight = Rectangle(
+                        (0,y - self._height / 2.0),
+                        self._width,
+                        self._height,
+                        ec = self._hl_color,
+                        fc = self._hl_color
+                    )
+
+                    self._select_axes.add_patch(self._select_highlight)
+
+                else:
+                    self._select_highlight.set_visible(True)
+
+                # delete existing text objects
+
+                for t in self._select_entries:
+                    t.remove()
+                    del t
+
+                self._select_entries = []
+
+                for t in self._text_list:
+
+                    txt = self._select_axes.text(
+                        x,y,t, ha = 'left', va = 'center')
+
+                    y -= self._height
+
+                    self._select_entries.append(txt)
+
+                self._mouse_motion_cid = self._select_axes.figure.canvas.mpl_connect(
+                    'motion_notify_event', self._on_mouse_motion
+                )
+
+                self._axes.figure.canvas.draw()
+
+            else: self._unhandled_state(new_state)
+
+        elif self._state == State.DROP_SELECT:
+
+            if new_state == State.IDLE:
+                self._select_axes.set_visible(False)
+                self._axes.figure.canvas.draw()
+
+            else: self._unhandled_state(new_state)
+
+        else: self._unhandled_state(new_state)
+
+        self._state = new_state
+
+
+    def _unhandled_state(self, new_state):
+        if _DEV:
+            print("unhandled %s --> %s" % (self._state, new_state))
+
+
+    def _on_mouse_down(self, event):
+
+        x, y = event.xdata, event.ydata
+
+        if x is None or y is None:
+            return
+
+        if self._state == State.IDLE:
+
+            if event.inaxes != self._axes:
+                return
+
+            cx = self._select_posx
+
+            d = np.sqrt( (x - cx) ** 2 )
+
+            if d <= 0.16:
+                self._change_state(State.DROP_SELECT)
+
+            else:
+                super(ComboBox, self)._on_mouse_down(event)
+
+        elif self._state == State.DROP_SELECT:
+
+            y = self._select_highlight.get_y()
+
+            idx = self._find_text_entry(y)
+
+            selection = self._text_list[idx]
+
+            self.text(selection)
+
+            if self._selection_notify:
+                self._selection_notify(idx, selection)
+
+            self._change_state(State.IDLE)
+
+
+        elif _DEV:
+            print("on_mouse_down(): unhandled %s" % self._state)
+
+
+    def _on_mouse_motion(self, event):
+
+        if event.inaxes != self._select_axes:
+            return
+
+        x, y = event.xdata, event.ydata
+
+        if x is None or y is None:
+            return
+
+        if self._state == State.DROP_SELECT:
+
+            idx = self._find_text_entry(y)
+
+            _, y = self._select_entries[idx].get_position()
+
+            self._select_highlight.set_y(y - self._height / 2.0)
+
+            self._select_axes.figure.canvas.draw()
+
+
+    def _find_text_entry(self, y):
+
+         # find nearest text
+
+        dist = []
+
+        for txt in self._select_entries:
+
+            _, ydata = txt.get_position()
+
+            d = np.abs(ydata - y)
+
+            dist.append(d)
+
+        return np.argmin(dist)
+
+
+    def _on_edit_notify(self, text):
+
+        print "text = ", text
+
+        self._text_list.append(text)
+
+        if self._edit_notify:
+            self._edit_notify(text)
 
 
 
+#------------------------------------------------------------------------------
+# Support classes
 
+class State(enum.Enum):
 
+    IDLE = 0
+    DROP_SELECT = 1
 
