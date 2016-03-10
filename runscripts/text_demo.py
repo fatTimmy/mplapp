@@ -21,8 +21,8 @@ def main():
 
     l2 = Label(3, 0.5, 'Bottom label')
 
-    cb = ComboBox(3, 0.25, ['a','b','c'])
-#~    cb = LineEdit(3, 0.5, 'abcdef0123456789')
+#~    cb = ComboBox(3, 0.25, ['a','b','c'])
+    cb = LineEdit(3, 0.5, 'abcdef0123456789')
 
     spacer = Label(1,3, '')
 

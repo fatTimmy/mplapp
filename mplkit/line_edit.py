@@ -80,6 +80,8 @@ class LineEdit(Label):
             if u'keymap' in key:
                 self._rc_keys_to_disable.append(key)
 
+        self._rc_keys_disabled = {}
+
         self._cursor = None
         self._orig_text = None
         self._highlight = None
@@ -166,14 +168,18 @@ class LineEdit(Label):
     def _stop_typing(self, key):
 
         self._mode = self.IDLE
-        self._cursor.set_visible(False)
-        self._axes.figure.canvas.draw()
+
+        if self._cursor:
+            self._cursor.set_visible(False)
+            self._axes.figure.canvas.draw()
 
         if self._notify and key == 'enter':
             self._notify(self.text())
 
-        for key in self._rc_keys_disable:
-            rcParams[key] = self._rc_keys_disable[key]
+        # restore default keymap
+
+        for key in self._rc_keys_disabled:
+            rcParams[key] = self._rc_keys_disabled[key]
 
 
     def _start_selecting(self):
@@ -213,16 +219,23 @@ class LineEdit(Label):
         # FIXME: add enable/disable flags
 
         if event.inaxes != self._axes:
+            self._stop_typing('enter')
+            return
+
+        x, y = event.xdata, event.ydata
+
+        if x is None or y is None:
+            self._stop_typing('enter')
             return
 
         if self._mode == self.IDLE:
 
             # disable the default keymap
 
-            self._rc_keys_disable = {}
+            self._rc_keys_disabled = {}
 
             for key in self._rc_keys_to_disable:
-                self._rc_keys_disable[key] = rcParams[key]
+                self._rc_keys_disabled[key] = rcParams[key]
                 rcParams[key] = []
 
         if event.dblclick:
@@ -240,6 +253,7 @@ class LineEdit(Label):
             self._mode = self.TYPING
 
         else:
+            self._stop_selecting()
             self._start_typing(event.x)
 
 
