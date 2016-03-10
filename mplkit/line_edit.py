@@ -1,3 +1,5 @@
+import enum
+
 import numpy as np
 
 from matplotlib import rcParams
@@ -9,14 +11,14 @@ import pyperclip
 from mplkit.label import Label
 
 
+# FIXME: need to create _change_state() to handle all the complex actions
+#        when switching state, currently the code is too complex.
+
+
 class LineEdit(Label):
     """
     A text label.
     """
-
-    IDLE = 0
-    TYPING = 1
-    SELECTING = 2
 
     def __init__(self, width, height, text, notify = None, **kwargs):
 
@@ -24,7 +26,7 @@ class LineEdit(Label):
         self._width = float(width)
         self._height = float(height)
 
-        self._mode = self.IDLE
+        self._state = State.IDLE
 
         # defaults
         ec = 'black'
@@ -59,6 +61,7 @@ class LineEdit(Label):
             del kwargs['highlight']
 
         self._hl_color = highlight
+        self._hl_x0 = None
 
         self._kwargs = kwargs
 
@@ -118,6 +121,12 @@ class LineEdit(Label):
             'button_press_event', self._on_mouse_down)
 
         self._axes.figure.canvas.mpl_connect(
+            'button_release_event', self._on_mouse_up)
+
+        self._axes.figure.canvas.mpl_connect(
+            'motion_notify_event', self._on_mouse_motion)
+
+        self._axes.figure.canvas.mpl_connect(
             'key_press_event', self._on_key_press)
 
         self._axes.figure.canvas.mpl_connect(
@@ -137,6 +146,7 @@ class LineEdit(Label):
         self._cursor_idx = text_idx
 
         # first time rending cursor?
+
         if self._cursor is None:
 
             color = self._text.get_color()
@@ -147,7 +157,7 @@ class LineEdit(Label):
 
         self._cursor.set_visible(True)
 
-        if self._mode == self.SELECTING:
+        if self._state == State.SELECTING:
 
             width = xdata - self._hl_x0
             self._highlight.set_width(width)
@@ -158,7 +168,14 @@ class LineEdit(Label):
 
     def _start_typing(self, x_pixel):
 
-        self._mode = self.TYPING
+        if self._state == State.SELECTING:
+
+            x = _search_text(self._text, x_pixel, 'pixel')[1]
+
+            width = x - self._hl_x0
+            self._highlight.set_width(width)
+
+        self._state = State.TYPING
         self._render_cursor(x_pixel, 'pixel')
 
         if self._orig_text is None:
@@ -167,7 +184,7 @@ class LineEdit(Label):
 
     def _stop_typing(self, key):
 
-        self._mode = self.IDLE
+        self._state = State.IDLE
 
         if self._cursor:
             self._cursor.set_visible(False)
@@ -182,11 +199,19 @@ class LineEdit(Label):
             rcParams[key] = self._rc_keys_disabled[key]
 
 
-    def _start_selecting(self):
+    def _start_selecting(self, x_pixel = None):
 
-        x, _ = self._cursor.get_data()
-        self._mode = self.SELECTING
-        self._hl_x0 = x[0]
+        self._state = State.SELECTING
+
+        if x_pixel:
+
+            x = _search_text(self._text, x_pixel, 'pixel')[1]
+
+            self._hl_x0 = x
+
+        else:
+            x = self._cursor.get_data()[0]
+            self._hl_x0 = x[0]
 
         if self._highlight is None:
 
@@ -208,7 +233,7 @@ class LineEdit(Label):
 
     def _stop_selecting(self):
 
-        self._mode = self.TYPING
+        self._state = State.TYPING
         if self._highlight:
             self._highlight.set_visible(False)
             self._axes.figure.canvas.draw()
@@ -228,7 +253,7 @@ class LineEdit(Label):
             self._stop_typing('enter')
             return
 
-        if self._mode == self.IDLE:
+        if self._state == State.IDLE:
 
             # disable the default keymap
 
@@ -244,25 +269,56 @@ class LineEdit(Label):
 
             self._render_cursor(self._cursor_idx, 'index')
 
-            self._start_selecting()
-
             self._cursor_idx = len(self.text())
 
             self._render_cursor(self._cursor_idx, 'index')
 
-            self._mode = self.TYPING
+            self._state = State.TYPING
 
         else:
             self._stop_selecting()
-            self._start_typing(event.x)
+            self._start_selecting(event.x)
 
+
+    def _on_mouse_up(self, event):
+
+        if self._state == State.SELECTING:
+            self._start_typing(event.x)
+            return
+
+        if event.inaxes != self._axes:
+            self._stop_typing('enter')
+            return
+
+        x, y = event.xdata, event.ydata
+
+        if x is None or y is None:
+            self._stop_typing('enter')
+
+
+    def _on_mouse_motion(self, event):
+
+        if event.inaxes != self._axes:
+            return
+
+        x, y = event.xdata, event.ydata
+
+        if x is None or y is None:
+            return
+
+        if self._state != State.SELECTING:
+            return
+
+        width = x - self._hl_x0
+        self._highlight.set_width(width)
+        self._axes.figure.canvas.draw()
 
 
     def _on_key_press(self, event):
 
         # FIXME: ignore if disabled
 
-        if self._mode == self.IDLE:
+        if self._state == State.IDLE:
             return
 
         key = event.key
@@ -312,7 +368,7 @@ class LineEdit(Label):
 
         elif key == 'left':
 
-            if self._mode != self.SELECTING:
+            if self._state != State.SELECTING:
                 self._stop_selecting()
 
             if self._cursor_idx == 0:
@@ -324,7 +380,7 @@ class LineEdit(Label):
 
         elif key == 'right':
 
-            if self._mode != self.SELECTING:
+            if self._state != State.SELECTING:
                 self._stop_selecting()
 
             N = len(self.text())
@@ -338,7 +394,7 @@ class LineEdit(Label):
 
         elif key == 'home':
 
-            if self._mode != self.SELECTING:
+            if self._state != State.SELECTING:
                 self._stop_selecting()
 
             if self._cursor_idx == 0:
@@ -350,7 +406,7 @@ class LineEdit(Label):
 
         elif key == 'end':
 
-            if self._mode != self.SELECTING:
+            if self._state != State.SELECTING:
                 self._stop_selecting()
 
             N = len(self.text())
@@ -370,7 +426,7 @@ class LineEdit(Label):
             self._stop_typing(key)
             self.text(self._orig_text)
             self._orig_text = None
-            self._mode = self.IDLE
+            self._state = State.IDLE
 
         elif key == 'shift':
             self._start_selecting()
@@ -424,8 +480,9 @@ class LineEdit(Label):
 
         key = event.key
 
-        if key == 'shift' and self._mode == self.SELECTING:
-            self._mode = self.TYPING
+        if key == 'shift' and self._state == State.SELECTING:
+            self._state = State.TYPING
+
 
     def _get_selected_range(self):
 
@@ -472,6 +529,18 @@ class LineEdit(Label):
 
         self._render_cursor(self._cursor_idx, 'index')
         self.text(s)
+
+
+#------------------------------------------------------------------------------
+# Support classes / functions
+
+class State(enum.Enum):
+
+    IDLE = 0
+    TYPING = 1
+    SELECTING = 2
+
+
 
 
 #------------------------------------------------------------------------------
