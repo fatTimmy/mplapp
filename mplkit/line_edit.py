@@ -267,20 +267,24 @@ class LineEdit(Label):
 
         key = event.key
 
+        if key is None:  # TAB key
+            return
+
         # normal keys are length 1
 
         if len(key) == 1:
 
-            text_idx, xdata = _search_text(
-                self._text, self._cursor_idx, 'index')
+            i0, i1 = self._get_selected_range()
 
             s = self.text()
 
-            s = s[0:text_idx] + key + s[text_idx:]
+            s = s[0:i0] + key + s[i1:]
 
             self.text(s)
 
-            self._cursor_idx += 1
+            self._stop_selecting()
+
+            self._cursor_idx = i0 + 1
 
             self._render_cursor(self._cursor_idx, 'index')
 
@@ -420,7 +424,7 @@ class LineEdit(Label):
 
         key = event.key
 
-        if key in 'shift' and self._mode == self.SELECTING:
+        if key == 'shift' and self._mode == self.SELECTING:
             self._mode = self.TYPING
 
     def _get_selected_range(self):
