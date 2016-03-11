@@ -14,22 +14,42 @@ from mplkit.plot import Plot
 
 def main():
 
-    # plot is 6 x 4 inches
+    # total width shall be 10 inches
 
-    # title label will be 7 x 1
+    W = 10
 
-    title = Label(6, 1.5,
+    plot_width = 7
+    plot_height = 5.0
+    plot_bottom = 0.4
+    left_padding = 1.0
+
+    title = Label(plot_width, 1.5,
         ('The Gaussian function: '
             r'$e^{-\frac{(t-\mu)^2}{2\sigma^2}}$'),
-        fontsize = 28)
+        fontsize = 28,
+        ec = 'k'
+    )
 
-    g_draw = GaussianDrawer(6, 4, pad_left = 0.7, pad_bottom = 0.5)
+    # left edge of plot padding
 
-    # sigma slider's total width should be 1 inch
+    g_draw = GaussianDrawer(
+        plot_width,
+        plot_height,
+        pad_bottom = 0.5,
+    )
+
+    # sigma slider: is a vertical slider on the right of the plot
+
+    label_width = 0.50
+    value_width = 0.50
+    slider_width = 0.25
+    slider_height = plot_height - plot_bottom
 
     sigma_slider = MySlider(
-        0.20, 0.25, 0.55,
-        height = 3.5,
+        label_width,
+        slider_width,
+        value_width,
+        height = plot_height,
         text = r'$\sigma$',
         notify = g_draw.draw,
         vmin = 0.001,
@@ -37,10 +57,14 @@ def main():
         vinit = 1.0
     )
 
-    # mu slider is under the plot and sigma slider, 7 x 0.25
+    # mu slider is under the plot
+
+    label_width = left_padding
 
     mu_slider = MySlider(
-        0.65, 5.35, 0.5,
+        label_width,
+        plot_width,
+        value_width,
         height = 0.25,
         text = r'$\mu$',
         notify = g_draw.draw,
@@ -52,30 +76,35 @@ def main():
     #--------------------------------------------------------------------------
     # push everything into a set of horizontal and vertical boxes for alignmnt
 
+    ec = 'k'
+
+    pad_left0 = Label(left_padding, 1.5, 'pad', ec = ec)
+    pad_left1 = Label(left_padding, plot_height, 'pad', ec = ec, va = 'top')
+    pad_right = Label(0.10, plot_height, '', ec = ec)
+    plot_bottom = Label(left_padding, 0.5, 'pad', ec = ec)
+    pad_bottom = Label(left_padding + plot_width, 0.10, '', ec = ec)
+
     vbox = VBox()
 
     # row 1
 
-    vbox.append(title)
+    hbox = HBox(padding = 0.0)
+
+    hbox.append(pad_left0, title)
+
+    vbox.append(hbox, 'left')
 
     # row 2
 
-    temp = HBox()
+    hbox = HBox(padding = 0.0)
 
-    # spacer
-    spacer = Label(0.25, 0.25, '')
+    hbox.append(pad_left1, g_draw.widget(), sigma_slider.hbox(), 'top', pad_right)
 
-    temp.append(g_draw.widget(), spacer, sigma_slider.hbox(), 'top')
-
-    vbox.append(temp)
+    vbox.append(hbox, plot_bottom, 'left')
 
     # row 3
 
-    # adding a spacer
-
-    spacer = Label(1, 0.10, '')
-
-    vbox.append(spacer, mu_slider.hbox(), 'left')
+    vbox.append(mu_slider.hbox(), 'left', pad_bottom, 'left')
 
     #--------------------------------------------------------------------------
     # render final window
@@ -104,7 +133,14 @@ class MySlider(object):
 
         self._text = kwargs['text']
 
-        mu_label = Label(label_width, height, self._text + ' ', ha = 'right', fontsize = 16)
+        mu_label = Label(
+            label_width,
+            height,
+            self._text + ' ',
+            ha = 'right',
+            fontsize = 28,
+            ec = 'k'
+        )
 
         slider = Slider(
             slider_width,
@@ -117,9 +153,15 @@ class MySlider(object):
 
         tinit = ' %.3f' % kwargs['vinit']
 
-        self._value_label = Label(value_width, height, tinit, ha = 'left')
+        self._value_label = Label(
+            value_width,
+            height,
+            tinit,
+            ha = 'left',
+            ec = 'k'
+        )
 
-        self._hbox = HBox()
+        self._hbox = HBox(padding = 0.0)
 
         self._hbox.append(mu_label, slider, self._value_label)
 
@@ -140,7 +182,12 @@ class GaussianDrawer(object):
         self._sr = sr
         self._taxis = np.linspace(tmin, tmax, (tmax - tmin) * sr)
 
-        self._plot = Plot(width, height, pad_top = 0.0, **kwargs)
+        self._plot = Plot(
+            width,
+            height,
+            pad_top = 0.0,
+            **kwargs
+        )
 
         self._mu = 0.0
         self._sigma = 1.0
@@ -191,7 +238,7 @@ class GaussianDrawer(object):
             plt.grid(True)
             plt.xlabel('Time (t)')
             plt.ylabel('Amplitude')
-            plt.xlim([self._taxis[0]-0.5, self._taxis[-1] + 0.5])
+            plt.xlim([self._taxis[0], self._taxis[-1]])
             plt.ylim([-0.1, 1.1])
 
         else:

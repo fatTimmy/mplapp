@@ -12,10 +12,10 @@ class Plot(object):
         self._width = float(width)
         self._height = float(height)
 
-        self._pad_left = kwargs.get('pad_left', 0.5)
-        self._pad_right = kwargs.get('pad_right', 0.0)
-        self._pad_top = kwargs.get('pad_top', 0.25)
-        self._pad_bottom = kwargs.get('pad_bottom', 0.25)
+#~        self._pad_left = kwargs.get('pad_left', 0.5)
+#~        self._pad_right = kwargs.get('pad_right', 0.0)
+#~        self._pad_top = kwargs.get('pad_top', 0.25)
+#~        self._pad_bottom = kwargs.get('pad_bottom', 0.25)
 
         self._axes = None
 
@@ -34,16 +34,16 @@ class Plot(object):
 
         W, H = fig.get_size_inches()
 
-        x += self._pad_left
-        y += self._pad_bottom
+#~        x += self._pad_left
+#~        y += self._pad_bottom
 
         x /= W
         y /= H
 
         w, h = self.size()
 
-        w -= self._pad_left + self._pad_right
-        h -= self._pad_top + self._pad_bottom
+#~        w -= self._pad_left + self._pad_right
+#~        h -= self._pad_top + self._pad_bottom
 
         w /= W
         h /= H

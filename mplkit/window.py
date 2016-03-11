@@ -30,6 +30,15 @@ class Window(object):
 
         self._fig = plt.figure(figsize=(w,h))
 
+        self._fig.subplots_adjust(
+            left = 0.0,
+            bottom = 0.0,
+            right = 1.0,
+            top = 1.0,
+            wspace = 0.0,
+            hspace = 0.0,
+        )
+
         self._fig.canvas.set_window_title(title)
 
         x = padding
