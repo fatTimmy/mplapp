@@ -11,6 +11,7 @@ class Label(object):
         self._height = float(height)
         self._kwargs = kwargs
 
+        self._text = None
         self._axes = None
         self._colors = ()
 
@@ -21,15 +22,20 @@ class Label(object):
 
     def text(self, new_text = None):
 
-        if self._text is None:
-            raise RuntimeError('This label ("%s") has been rendered yet')
-
         if new_text is None:
+
+            if self._text is None:
+                return self._str
+
             return self._text.get_text()
 
         else:
-            self._text.set_text(new_text)
-            self._axes.figure.canvas.draw()
+
+            if self._text is None:
+                self._str = new_text
+            else:
+                self._text.set_text(new_text)
+                self._axes.figure.canvas.draw()
 
 
     def _render(self, fig, x, y):

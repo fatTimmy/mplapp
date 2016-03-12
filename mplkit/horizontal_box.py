@@ -5,9 +5,17 @@ class HorizontalBox(object):
     ALIGNMENT = ['top', 'center', 'bottom']
 
 
-    def __init__(self, padding = 0.05):
+    def __init__(self, **kwargs):
         self._widgets = []
-        self._padding = padding
+        self._padding = kwargs.get('padding', 0.0)
+
+        va = kwargs.get('va', None)
+
+        if va is None:
+            va = kwargs.get('verticalalignment', 'center')
+
+        self._va = va
+
         self._width = 0
         self._height = 0
 
@@ -36,7 +44,7 @@ class HorizontalBox(object):
                 i += 2
 
             else:
-                va = 'center'
+                va = self._va
 
                 i += 1
 

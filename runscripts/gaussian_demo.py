@@ -1,3 +1,6 @@
+import argparse
+
+
 import numpy as np
 import matplotlib
 import matplotlib.pyplot as plt
@@ -7,6 +10,7 @@ from mplkit.window import Window
 from mplkit.horizontal_box import HorizontalBox as HBox
 from mplkit.vertical_box import VerticalBox as VBox
 from mplkit.label import Label
+from mplkit.spacer import Spacer
 from mplkit.button import Button
 from mplkit.slider import Slider
 from mplkit.plot import Plot
@@ -14,239 +18,315 @@ from mplkit.plot import Plot
 
 def main():
 
-    # total width shall be 10 inches
+    parser = argparse.ArgumentParser()
 
-    W = 10
+    parser.add_argument(
+        '-d',
+        '--debug',
+        action = 'store_true',
+        help = 'Show the bounding boxes around Spacers and Labels.'
+    )
 
+    args = parser.parse_args()
+
+    if args.debug:
+        Debug.value = True
+
+    #--------------------------------------------------------------------------
+    # various sizes of widget element
+
+    title_height = 1.5
+
+    plot_height = 6
     plot_width = 7
-    plot_height = 5.0
-    plot_bottom = 0.4
-    left_padding = 1.0
 
-    title = Label(plot_width, 1.5,
-        ('The Gaussian function: '
-            r'$e^{-\frac{(t-\mu)^2}{2\sigma^2}}$'),
-        fontsize = 28,
-        ec = 'k'
+    plot_left   = 1.0
+    plot_bottom = 0.75
+
+    mu_height = 0.5
+
+    slider_size = 0.25
+
+    fontsize = 28
+
+    # default values
+
+    mu = 0.0
+    sigma = 1.0
+
+    # limits
+
+    mu0 = -5.0
+    mu1 = 5.0
+
+    sigma0 = 0.0
+    sigma1 = 5.0
+
+    #--------------------------------------------------------------------------
+    # create some widgets that will be the targets of callbacks
+
+    mu_value_label = Label(0.50, slider_size, ' %.2f' % mu, ha = 'left', ec = get_edgecolor())
+    sigma_value_label = Label(0.50, plot_height, ' %.2f' % sigma, ha = 'left', ec = get_edgecolor())
+    plot = Plot(plot_width, plot_height)
+
+    # objects that respond to the sliders and redraw the plot
+
+    gaussian_drawer = DrawGaussian(plot)
+
+    mu_updater = LabelUpdater('mu', mu_value_label, gaussian_drawer.redraw)
+    sigma_updater = LabelUpdater('sigma', sigma_value_label, gaussian_drawer.redraw)
+
+    #--------------------------------------------------------------------------
+    # column 1: spacer title, spacer plot left, spacer plot bottom, mu label
+
+    col1 = VBox(padding = 0.05)
+
+    # space on the of the title
+    sp = make_spacer(plot_left, title_height)
+
+    col1.append(sp)
+
+    # space on the left of the plot
+
+    sp = make_spacer(plot_left, plot_height)
+
+    col1.append(sp)
+
+    # plot bottom spacer
+
+    sp = make_spacer(plot_left, plot_bottom)
+
+    col1.append(sp)
+
+    # mu label ont he left of the mu slider
+
+    label = Label(
+        plot_left,
+        slider_size,
+        '$\mu$  ',
+        ha = 'right',
+        fontsize = fontsize,
+        ec = get_edgecolor(),
     )
 
-    # left edge of plot padding
+    col1.append(label)
 
-    g_draw = GaussianDrawer(
+    #--------------------------------------------------------------------------
+    # column 2: title, plot, plot bottom spacer, mu slider
+
+    col2 = VBox(padding = 0.05)
+
+    # title
+
+    title = Label(
         plot_width,
+        title_height,
+        ('The Gaussian function: ' r'$e^{-\frac{(t-\mu)^2}{2\sigma^2}}$'),
+        fontsize = fontsize,
+        ec = get_edgecolor(),
+    )
+
+    col2.append(title)
+
+    # plot widget
+
+    col2.append(plot)
+
+    # plot bottom spacer
+
+    sp = make_spacer(plot_width, plot_bottom)
+
+    col2.append(sp)
+
+    # mu slider
+
+    slider = Slider(
+        plot_width,
+        slider_size,
+        notify = mu_updater.update,
+        vmin = mu0,
+        vmax = mu1,
+        vinit = mu,
+    )
+
+    col2.append(slider)
+
+    #--------------------------------------------------------------------------
+    # column 3: spacer title, sigma slider, plot bottom spacer, mu value label
+
+    col3 = VBox(padding = 0.05)
+
+    sp = make_spacer(0.1, title_height)
+
+    col3.append(sp)
+
+    # sigma slider: a horizontal box with sigma label, slider, value label
+
+    label = Label(
+        0.50,
         plot_height,
-        pad_bottom = 0.5,
+        '$ \sigma$',
+        ec = get_edgecolor(),
+        fontsize = fontsize,
     )
 
-    # sigma slider: is a vertical slider on the right of the plot
-
-    label_width = 0.50
-    value_width = 0.50
-    slider_width = 0.25
-    slider_height = plot_height - plot_bottom
-
-    sigma_slider = MySlider(
-        label_width,
-        slider_width,
-        value_width,
-        height = plot_height,
-        text = r'$\sigma$',
-        notify = g_draw.draw,
-        vmin = 0.001,
-        vmax = 5.0,
-        vinit = 1.0
+    slider = Slider(
+        slider_size,
+        plot_height,
+        notify = sigma_updater.update,
+        vmin = sigma0,
+        vmax = sigma1,
+        vinit = sigma,
     )
 
-    # mu slider is under the plot
+    hbox = HBox(padding = 0.05)
 
-    label_width = left_padding
+    hbox.append(label, slider, sigma_value_label)
 
-    mu_slider = MySlider(
-        label_width,
-        plot_width,
-        value_width,
-        height = 0.25,
-        text = r'$\mu$',
-        notify = g_draw.draw,
-        vmin = -5.0,
-        vmax = 5.0,
-        vinit = 0.0
-    )
+    col3.append(hbox)
+
+    # mu value label, plus spacer
+
+    sp = make_spacer(0.1, plot_bottom)
+
+    col3.append(sp, mu_value_label, 'left')
+
+    # one more spacer to padd the window's bottom edge
+
+    sp = make_spacer(0.1, 0.25)
+
+    col3.append(sp)
 
     #--------------------------------------------------------------------------
-    # push everything into a set of horizontal and vertical boxes for alignmnt
+    # render the window and make draw initial gaussian curve
 
-    ec = 'k'
+    hbox = HBox(va = 'top', padding = 0.05)
 
-    pad_left0 = Label(left_padding, 1.5, 'pad', ec = ec)
-    pad_left1 = Label(left_padding, plot_height, 'pad', ec = ec, va = 'top')
-    pad_right = Label(0.10, plot_height, '', ec = ec)
-    plot_bottom = Label(left_padding, 0.5, 'pad', ec = ec)
-    pad_bottom = Label(left_padding + plot_width, 0.10, '', ec = ec)
+    hbox.append(col1, col2, col3)
 
-    vbox = VBox()
+    window = Window(hbox, 'Gaussian Drawing')
 
-    # row 1
+    # all widgets are now rendered, plot on the Plot widget
 
-    hbox = HBox(padding = 0.0)
+    plt.sca(plot.axes())
 
-    hbox.append(pad_left0, title)
+    # construct time axis
 
-    vbox.append(hbox, 'left')
+    samplerate = 100
 
-    # row 2
+    x = np.linspace(mu0, mu1, (mu1 - mu0) * samplerate)
 
-    hbox = HBox(padding = 0.0)
+    y = gaussian_drawer.compute(x, mu, sigma)
 
-    hbox.append(pad_left1, g_draw.widget(), sigma_slider.hbox(), 'top', pad_right)
+    plt.plot(x, y, 'b-')
+    plt.grid(True)
+    plt.xlabel('Time (s)')
+    plt.ylabel('Amplitude')
+    plt.xlim([mu0, mu1])
+    plt.ylim([-0.05, 1.05])
 
-    vbox.append(hbox, plot_bottom, 'left')
-
-    # row 3
-
-    vbox.append(mu_slider.hbox(), 'left', pad_bottom, 'left')
-
-    #--------------------------------------------------------------------------
-    # render final window
-
-    w = Window(vbox, 'Gaussian Drawing')
-
-    # stimulate the first drawing
-    g_draw.draw()
+    # enter matplotlib event loop
 
     plt.show()
 
 
+#------------------------------------------------------------------------------
+# support utilities
+
+class Debug(object):
+    value = False
 
 
-class MySlider(object):
+class Count(object):
+    value = 0
 
 
-    def __init__(self, label_width, slider_width, value_width, height, notify, **kwargs):
-        """
-        Creates the slider for adjusting mu.
-        """
+def make_spacer(w, h):
 
-        self._height = float(height)
-        self._width = float(label_width + slider_width + value_width)
+    if Debug.value:
+
+        widget = Label(
+            w,
+            h,
+            'sp%d' % Count.value,
+            ec = get_edgecolor(),
+            ha = 'left',
+            va = 'top',
+        )
+
+    else:
+
+        widget = Spacer(w, h)
+
+    Count.value += 1
+
+    return widget
+
+
+def get_edgecolor():
+
+    if Debug.value:
+        return 'k'
+
+    else:
+        return 'none'
+
+
+class LabelUpdater(object):
+
+    def __init__(self, name, label, notify, fmt = ' %.2f'):
+
+        self._name = name
+        self._label = label
+        self._fmt = fmt
         self._notify = notify
 
-        self._text = kwargs['text']
 
-        mu_label = Label(
-            label_width,
-            height,
-            self._text + ' ',
-            ha = 'right',
-            fontsize = 28,
-            ec = 'k'
-        )
-
-        slider = Slider(
-            slider_width,
-            height,
-            vmin = kwargs['vmin'],
-            vmax = kwargs['vmax'],
-            vinit = kwargs['vinit'],
-            notify = self._update_value_label
-        )
-
-        tinit = ' %.3f' % kwargs['vinit']
-
-        self._value_label = Label(
-            value_width,
-            height,
-            tinit,
-            ha = 'left',
-            ec = 'k'
-        )
-
-        self._hbox = HBox(padding = 0.0)
-
-        self._hbox.append(mu_label, slider, self._value_label)
+    def update(self, new_value):
+        self._label.text(self._fmt % new_value)
+        self._notify(name = self._name, value = new_value)
 
 
-    def _update_value_label(self, value):
-        self._value_label.text(' %.3f' % value)
-        self._notify(text = self._text, value = value)
+class DrawGaussian(object):
 
+    def __init__(self, plot_widget):
 
-    def hbox(self):
-        return self._hbox
-
-
-class GaussianDrawer(object):
-
-    def __init__(self, width, height, sr = 100, tmin = -5.0, tmax = 5.0, **kwargs):
-
-        self._sr = sr
-        self._taxis = np.linspace(tmin, tmax, (tmax - tmin) * sr)
-
-        self._plot = Plot(
-            width,
-            height,
-            pad_top = 0.0,
-            **kwargs
-        )
-
-        self._mu = 0.0
-        self._sigma = 1.0
+        self._plot_widget = plot_widget
 
         self._line = None
+        self._time_axis = None
 
 
-    def widget(self):
-        return self._plot
-
-
-    def _draw(self, mu, sigma):
+    def compute(self, taxis, mu, sigma):
         """
         Computes the new y data.
         """
-
-        t = np.array(self._taxis)
-
-        return np.exp(- ( (t - mu) ** 2 / (2 * sigma ** 2)))
+        return np.exp(- ( (taxis - mu) ** 2 / (2 * sigma ** 2)))
 
 
-    def draw(self, **kwargs):
-
-        text = kwargs.get('text', '')
-
-        if 'mu' in text:
-            self._mu = kwargs['value']
-
-        elif 'sigma' in text:
-            self._sigma = kwargs['value']
-
-        axes = self._plot.axes()
-
-        if axes == None:
-
-            # not rendered yet
-
-            return
+    def redraw(self, name = '', value = None):
 
         if self._line is None:
-            # first time drawing on axes
 
-            plt.sca(axes)
+            self._line = self._plot_widget.axes().get_lines()[0]
 
-            self._line = plt.plot(
-                self._taxis, self._draw(self._mu, self._sigma), 'b-')[0]
+            self._time_axis = self._line.get_data()[0]
 
-            plt.grid(True)
-            plt.xlabel('Time (t)')
-            plt.ylabel('Amplitude')
-            plt.xlim([self._taxis[0], self._taxis[-1]])
-            plt.ylim([-0.1, 1.1])
+        mu = 0.0
+        sigma = 1.0
 
-        else:
+        if name == 'mu':
+            mu = value
 
-            # update the y data
-            self._line.set_ydata(self._draw(self._mu, self._sigma))
+        elif name == 'sigma':
+            sigma = value
 
-        axes.figure.canvas.draw_idle()
+        x = self._time_axis
+
+        y = self.compute(x, mu, sigma)
+
+        self._line.set_data(x, y)
+        self._line.axes.figure.canvas.draw_idle()
 
 
 if __name__ == "__main__":
