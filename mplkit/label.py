@@ -1,5 +1,7 @@
+from mplkit.base import Base
 
-class Label(object):
+
+class Label(Base):
     """
     A text label.
     """
@@ -16,8 +18,20 @@ class Label(object):
         self._colors = ()
 
 
+    def axes(self):
+        if self._axes:
+            return self._axes
+        raise RuntimeError('This widget has not been rendered yet')
+
+
+    def canvas(self):
+        if self._axes:
+            return self._axes.figure.canvas
+        raise RuntimeError('This widget has not been rendered yet')
+
+
     def size(self):
-        return (self._width, self._height)
+        return self._width, self._height
 
 
     def text(self, new_text = None):
@@ -35,7 +49,7 @@ class Label(object):
                 self._str = new_text
             else:
                 self._text.set_text(new_text)
-                self._axes.figure.canvas.draw()
+                self.canvas().draw()
 
 
     def _render(self, fig, x, y):

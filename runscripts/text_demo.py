@@ -10,6 +10,7 @@ from mplkit.vertical_box import VerticalBox as VBox
 from mplkit.label import Label
 from mplkit.line_edit import LineEdit
 from mplkit.combo_box import ComboBox
+from mplkit.spacer import Spacer
 
 
 def main():
@@ -17,20 +18,23 @@ def main():
 
     l1 = Label(3, 0.5, 'Top label')
 
-    le = LineEdit(3, 0.5, 'EditMe!')
+    le1 = LineEdit(3, 0.5, 'EditMe!')
 
     l2 = Label(3, 0.5, 'Bottom label')
 
-#~    cb = ComboBox(3, 0.25, ['a','b','c'])
-    cb = LineEdit(3, 0.5, 'abcdef0123456789')
+    le2 = LineEdit(3, 0.5, 'abcdef0123456789')
 
-    spacer = Label(1,3, '')
+    sp1 = Spacer(3,0.25)
+
+    cb = ComboBox(3, 0.5, ['one', 'two', 'three'])
+
+    sp2 = Spacer(3, 3)
 
     vbox = VBox()
 
-    vbox.append(l1, le, l2, cb, spacer)
+    vbox.append(l1, le1, l2, le2, sp1, cb, sp2)
 
-    w = Window(vbox, 'LineEdit Demo')
+    w = Window(vbox, 'Text Demo')
 
     plt.show()
 

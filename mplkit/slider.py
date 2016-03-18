@@ -1,10 +1,11 @@
-
 import matplotlib
 from matplotlib.patches import Rectangle
 
 
+from mplkit.base import Base
 
-class Slider(object):
+
+class Slider(Base):
     """
     A slider that responds to mouse clicks and motion
     """
@@ -60,8 +61,20 @@ class Slider(object):
         self._state = self.IDLE
 
 
+    def axes(self):
+        if self._axes:
+            return self._axes
+        raise RuntimeError('This widget has not been rendered yet')
+
+
+    def canvas(self):
+        if self._axes:
+            return self._axes.figure.canvas
+        raise RuntimeError('This widget has not been rendered yet')
+
+
     def size(self):
-        return (self._width, self._height)
+        return self._width, self._height
 
 
     def value(self, new_value = None):
@@ -81,7 +94,7 @@ class Slider(object):
             else:
                 self._rect.set_height(new_value)
 
-            self._axes.figure.canvas.draw_idle()
+            self.canvas().draw_idle()
 
             if self._notify:
                 self._notify(new_value)
@@ -144,13 +157,13 @@ class Slider(object):
 
         self._axes = ax
 
-        self._axes.figure.canvas.mpl_connect(
+        self.canvas().mpl_connect(
             'button_press_event', self._on_mouse_click)
 
-        self._axes.figure.canvas.mpl_connect(
+        self.canvas().mpl_connect(
             'button_release_event', self._on_mouse_release)
 
-        self._cid_motion = self._axes.figure.canvas.mpl_connect(
+        self._cid_motion = self.canvas().mpl_connect(
             'motion_notify_event', self._on_mouse_motion)
 
 

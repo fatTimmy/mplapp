@@ -1,5 +1,7 @@
+from mplkit.base import Base
 
-class Spacer(object):
+
+class Spacer(Base):
     """
     Just something that takes up space, to aid widget alignment.
     """
@@ -8,6 +10,14 @@ class Spacer(object):
 
         self._width = float(width)
         self._height = float(height)
+
+
+    def axes(self):
+        raise RuntimeError("Spacer does not have an axes")
+
+
+    def canvas(self):
+        raise RuntimeError("Spacer does not have a canvas")
 
 
     def size(self):

@@ -90,23 +90,6 @@ class LineEdit(Label):
         self._highlight = None
 
 
-    def size(self):
-        return (self._width, self._height)
-
-
-    def text(self, new_text = None):
-
-        if self._text is None:
-            raise RuntimeError('This LineEdit ("%s") has been rendered yet')
-
-        if new_text is None:
-            return self._text.get_text()
-
-        else:
-            self._text.set_text(new_text)
-            self._axes.figure.canvas.draw()
-
-
     def _render(self, fig, x, y):
 
         super(LineEdit, self)._render(fig, x, y)
@@ -117,19 +100,19 @@ class LineEdit(Label):
 
         self._text.set_position(pos)
 
-        self._axes.figure.canvas.mpl_connect(
+        self.canvas().mpl_connect(
             'button_press_event', self._on_mouse_down)
 
-        self._axes.figure.canvas.mpl_connect(
+        self.canvas().mpl_connect(
             'button_release_event', self._on_mouse_up)
 
-        self._axes.figure.canvas.mpl_connect(
+        self.canvas().mpl_connect(
             'motion_notify_event', self._on_mouse_motion)
 
-        self._axes.figure.canvas.mpl_connect(
+        self.canvas().mpl_connect(
             'key_press_event', self._on_key_press)
 
-        self._axes.figure.canvas.mpl_connect(
+        self.canvas().mpl_connect(
             'key_release_event', self._on_key_release)
 
 
@@ -162,8 +145,7 @@ class LineEdit(Label):
             width = xdata - self._hl_x0
             self._highlight.set_width(width)
 
-
-        self._axes.figure.canvas.draw()
+        self.canvas().draw()
 
 
     def _start_typing(self, x_pixel):
@@ -188,15 +170,15 @@ class LineEdit(Label):
 
         if self._cursor:
             self._cursor.set_visible(False)
-            self._axes.figure.canvas.draw()
+            self.canvas().draw()
 
         if self._notify and key == 'enter':
             self._notify(self.text())
 
-        # restore default keymap
+            # restore default keymap
 
-        for key in self._rc_keys_disabled:
-            rcParams[key] = self._rc_keys_disabled[key]
+            for key in self._rc_keys_disabled:
+                rcParams[key] = self._rc_keys_disabled[key]
 
 
     def _start_selecting(self, x_pixel = None):
@@ -228,7 +210,7 @@ class LineEdit(Label):
             self._highlight.set_width(0)
             self._highlight.set_visible(True)
 
-        self._axes.figure.canvas.draw()
+        self.canvas().draw()
 
 
     def _stop_selecting(self):
@@ -236,7 +218,7 @@ class LineEdit(Label):
         self._state = State.TYPING
         if self._highlight:
             self._highlight.set_visible(False)
-            self._axes.figure.canvas.draw()
+            self.canvas().draw()
 
 
     def _on_mouse_down(self, event):
@@ -311,7 +293,7 @@ class LineEdit(Label):
 
         width = x - self._hl_x0
         self._highlight.set_width(width)
-        self._axes.figure.canvas.draw()
+        self.canvas().draw()
 
 
     def _on_key_press(self, event):
@@ -539,8 +521,6 @@ class State(enum.Enum):
     IDLE = 0
     TYPING = 1
     SELECTING = 2
-
-
 
 
 #------------------------------------------------------------------------------

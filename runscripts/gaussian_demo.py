@@ -35,19 +35,19 @@ def main():
     #--------------------------------------------------------------------------
     # various sizes of widget element
 
-    title_height = 1.5
+    title_height = 1.0
 
-    plot_height = 6
-    plot_width = 7
+    plot_height = 4
+    plot_width = 5
 
     plot_left   = 1.0
-    plot_bottom = 0.75
+    plot_bottom = 0.60
 
     mu_height = 0.5
 
     slider_size = 0.25
 
-    fontsize = 28
+    fontsize = 24
 
     # default values
 
@@ -71,7 +71,7 @@ def main():
 
     # objects that respond to the sliders and redraw the plot
 
-    gaussian_drawer = DrawGaussian(plot)
+    gaussian_drawer = DrawGaussian(plot, mu, sigma)
 
     mu_updater = LabelUpdater('mu', mu_value_label, gaussian_drawer.redraw)
     sigma_updater = LabelUpdater('sigma', sigma_value_label, gaussian_drawer.redraw)
@@ -79,7 +79,7 @@ def main():
     #--------------------------------------------------------------------------
     # column 1: spacer title, spacer plot left, spacer plot bottom, mu label
 
-    col1 = VBox(padding = 0.05)
+    col1 = VBox()
 
     # space on the of the title
     sp = make_spacer(plot_left, title_height)
@@ -114,7 +114,7 @@ def main():
     #--------------------------------------------------------------------------
     # column 2: title, plot, plot bottom spacer, mu slider
 
-    col2 = VBox(padding = 0.05)
+    col2 = VBox()
 
     # title
 
@@ -154,7 +154,7 @@ def main():
     #--------------------------------------------------------------------------
     # column 3: spacer title, sigma slider, plot bottom spacer, mu value label
 
-    col3 = VBox(padding = 0.05)
+    col3 = VBox()
 
     sp = make_spacer(0.1, title_height)
 
@@ -179,7 +179,7 @@ def main():
         vinit = sigma,
     )
 
-    hbox = HBox(padding = 0.05)
+    hbox = HBox()
 
     hbox.append(label, slider, sigma_value_label)
 
@@ -289,12 +289,15 @@ class LabelUpdater(object):
 
 class DrawGaussian(object):
 
-    def __init__(self, plot_widget):
+    def __init__(self, plot_widget, mu, sigma):
 
         self._plot_widget = plot_widget
 
         self._line = None
         self._time_axis = None
+
+        self._mu = mu
+        self._sigma = sigma
 
 
     def compute(self, taxis, mu, sigma):
@@ -312,18 +315,15 @@ class DrawGaussian(object):
 
             self._time_axis = self._line.get_data()[0]
 
-        mu = 0.0
-        sigma = 1.0
-
         if name == 'mu':
-            mu = value
+            self._mu = value
 
         elif name == 'sigma':
-            sigma = value
+            self._sigma = value
 
         x = self._time_axis
 
-        y = self.compute(x, mu, sigma)
+        y = self.compute(x, self._mu, self._sigma)
 
         self._line.set_data(x, y)
         self._line.axes.figure.canvas.draw_idle()

@@ -1,11 +1,13 @@
+from mplkit.base import Base
 
-class VerticalBox(object):
+
+class VerticalBox(Base):
 
     ALIGNMENT = ['left', 'center', 'right']
 
     def __init__(self, **kwargs):
         self._widgets = []
-        self._padding = kwargs.get('padding', 0.0)
+        self._padding = kwargs.get('padding', 0.05)
 
         ha = kwargs.get('ha', None)
 
@@ -53,6 +55,14 @@ class VerticalBox(object):
             self._height += h + self._padding
 
             self._widgets.append( (widget, ha) )
+
+
+    def axes(self):
+        raise RuntimeError('VericalBox does not have an axes')
+
+
+    def canvas(self):
+        raise RuntimeError('VericalBox does not have a canvas')
 
 
     def size(self):

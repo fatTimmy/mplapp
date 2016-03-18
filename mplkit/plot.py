@@ -1,8 +1,7 @@
+from mplkit.base import Base
 
-import matplotlib
 
-
-class Plot(object):
+class Plot(Base):
     """
     A wrapper for an Axes.
     """
@@ -15,11 +14,19 @@ class Plot(object):
 
 
     def axes(self):
-        return self._axes
+        if self._axes:
+            return self._axes
+        raise RuntimeError('This widget has not been rendered yet')
+
+
+    def canvas(self):
+        if self._axes:
+            return self._axes.figure.canvas
+        raise RuntimeError('This widget has not been rendered yet')
 
 
     def size(self):
-        return (self._width, self._height)
+        return self._width, self._height
 
 
     def _render(self, fig, x, y):

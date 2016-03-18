@@ -136,7 +136,3 @@ class Button(Label):
 
         if self._callback:
             self._callback(event)
-
-
-
-
