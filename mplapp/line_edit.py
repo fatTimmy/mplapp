@@ -218,6 +218,7 @@ class LineEdit(Label):
     def _stop_selecting(self):
 
         self._state = State.TYPING
+
         if self._highlight:
             self._highlight.set_visible(False)
             self.canvas().draw()
@@ -440,7 +441,9 @@ class LineEdit(Label):
             self._state = State.IDLE
 
         elif key == 'shift':
-            self._start_selecting()
+
+            if not self._highlight.get_visible():
+                self._start_selecting()
 
         elif key in ['ctrl+c', 'ctrl+x']:
 
