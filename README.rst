@@ -38,3 +38,12 @@ Example 2: An interactive plot with 2 sliders
     $ PYTHONPATH=`pwd` python runscripts/gaussian_demo.py
 
 .. image:: example2.png
+
+
+Example 3: Line Edits that you can select & copy-n-paste text!
+
+.. code-block:: console
+
+    $ PYTHONPATH=`pwd` python runscripts/gaussian_demo.py
+
+.. image:: example3.png
