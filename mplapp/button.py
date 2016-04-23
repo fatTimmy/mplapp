@@ -4,7 +4,7 @@ import time
 
 from matplotlib.colors import ColorConverter
 
-from mplkit.label import Label
+from mplapp.label import Label
 
 
 class Button(Label):
@@ -26,15 +26,67 @@ class Button(Label):
 
         super(Button, self).__init__(width, height, text, **kwargs)
 
+        self._cid = None
 
-    def size(self):
-        return (self._width, self._height)
+
+    def is_enabled(self):
+        return self._cid is not None
+
+
+    def enable(self):
+
+        if self._cid: # already enabled?
+            return
+
+        # set enabled colors
+
+        ec, fc, text_color = self._colors
+
+        ax = self._axes
+
+        ax.set_axis_bgcolor(fc)
+
+        for side in ['bottom', 'top', 'left', 'right']:
+            ax.spines[side].set_color(ec)
+
+        self._text.set_color(text_color)
+
+        self._axes.figure.canvas.draw()
+
+        self._cid = self._axes.figure.canvas.mpl_connect(
+            'button_press_event', self._blink_on_click)
+
+
+    def disable(self):
+
+        if self._cid is None: # already disabled?
+            return
+
+        self._axes.figure.canvas.mpl_disconnect(self._cid)
+        self._cid = None
+
+        # set disabled colors
+
+        ax = self._axes
+
+        grey65 = [1.0 - 0.65] * 3
+        grey45 = [1.0 - 0.45] * 3
+        grey25 = [1.0 - 0.20] * 3
+
+        ax.set_axis_bgcolor(grey25)
+
+        for side in ['bottom', 'top', 'left', 'right']:
+            ax.spines[side].set_color(grey45)
+
+        self._text.set_color(grey65)
+
+        self._axes.figure.canvas.draw()
 
 
     def _render(self, fig, x, y):
         super(Button, self)._render(fig, x, y)
 
-        self._axes.figure.canvas.mpl_connect(
+        self._cid = self._axes.figure.canvas.mpl_connect(
             'button_press_event',
             self._blink_on_click
         )
@@ -84,7 +136,3 @@ class Button(Label):
 
         if self._callback:
             self._callback(event)
-
-
-
-

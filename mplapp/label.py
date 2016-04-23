@@ -1,5 +1,7 @@
+from mplapp.base import Base
 
-class Label(object):
+
+class Label(Base):
     """
     A text label.
     """
@@ -11,11 +13,43 @@ class Label(object):
         self._height = float(height)
         self._kwargs = kwargs
 
+        self._text = None
         self._axes = None
+        self._colors = ()
+
+
+    def axes(self):
+        if self._axes:
+            return self._axes
+        raise RuntimeError('This widget has not been rendered yet')
+
+
+    def canvas(self):
+        if self._axes:
+            return self._axes.figure.canvas
+        raise RuntimeError('This widget has not been rendered yet')
 
 
     def size(self):
-        return (self._width, self._height)
+        return self._width, self._height
+
+
+    def text(self, new_text = None):
+
+        if new_text is None:
+
+            if self._text is None:
+                return self._str
+
+            return self._text.get_text()
+
+        else:
+
+            if self._text is None:
+                self._str = new_text
+            else:
+                self._text.set_text(new_text)
+                self.canvas().draw()
 
 
     def _render(self, fig, x, y):
@@ -31,6 +65,10 @@ class Label(object):
         h = self._height / H
 
         ax = fig.add_axes([x, y, w, h], xticks=[], yticks=[])
+        ax.set_xlim([0, self._width])
+        ax.set_ylim([0, self._height])
+
+        # background color of label: facecolor
 
         fc = fig.get_facecolor()
 
@@ -44,6 +82,8 @@ class Label(object):
 
         ax.set_axis_bgcolor(fc)
 
+        # edge color of label: edgecolor
+
         ec = fc
 
         if 'ec' in self._kwargs:
@@ -54,10 +94,17 @@ class Label(object):
             ec = self._kwargs['edgecolor']
             del self._kwargs['edgecolor']
 
-        ax.spines['bottom'].set_color(ec)
-        ax.spines['top'].set_color(ec)
-        ax.spines['left'].set_color(ec)
-        ax.spines['right'].set_color(ec)
+        for side in ['bottom', 'top', 'left', 'right']:
+            ax.spines[side].set_color(ec)
+
+        # text color of label
+
+        color = 'black'
+
+        if 'color' in self._kwargs:
+            color = self._kwargs['color']
+
+        self._colors = (ec, fc, color)
 
         # defaults
 
@@ -85,19 +132,21 @@ class Label(object):
         # based on alignment, set x,y
 
         ha_to_x = dict(
-            center = 0.5,
+            center = self._width / 2.0,
             left = 0.0,
-            right = 1.0)
+            right = self._width)
 
         va_to_y = dict(
-            center = 0.5,
-            top = 1.0,
+            center = self._height / 2,
+            top = self._height,
             bottom = 0.0)
 
         x = ha_to_x[ha]
         y = va_to_y[va]
 
-        ax.text(x, y, self._str, **self._kwargs)
+        self._text = ax.text(x, y, self._str, **self._kwargs)
+
+        self._str = None
 
         self._axes = ax
 

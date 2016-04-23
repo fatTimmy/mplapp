@@ -1,0 +1,7 @@
+include LICENSE
+include README.rst
+include mplapp
+include pypi.rst
+include runscripts
+include setup.py
+include ex*.jpg ex*.png
