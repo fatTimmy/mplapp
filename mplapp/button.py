@@ -4,7 +4,7 @@ import time
 
 from matplotlib.colors import ColorConverter
 
-from mplkit.label import Label
+from mplapp.label import Label
 
 
 class Button(Label):

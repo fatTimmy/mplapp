@@ -4,37 +4,45 @@ import matplotlib
 import matplotlib.pyplot as plt
 
 
-from mplkit.window import Window
-from mplkit.horizontal_box import HorizontalBox as HBox
-from mplkit.vertical_box import VerticalBox as VBox
-from mplkit.label import Label
-from mplkit.line_edit import LineEdit
-from mplkit.combo_box import ComboBox
-from mplkit.spacer import Spacer
+from mplapp.window import Window
+from mplapp.horizontal_box import HorizontalBox as HBox
+from mplapp.vertical_box import VerticalBox as VBox
+from mplapp.label import Label
+from mplapp.line_edit import LineEdit
+from mplapp.combo_box import ComboBox
+from mplapp.spacer import Spacer
 
 
 def main():
 
+    width = 5
 
-    l1 = Label(3, 0.5, 'Top label')
 
-    le1 = LineEdit(3, 0.5, 'EditMe!')
+    l1 = Label(width, 0.5, 'Top label')
 
-    l2 = Label(3, 0.5, 'Bottom label')
+    le1 = LineEdit(width, 0.5, 'EditMe!')
 
-    le2 = LineEdit(3, 0.5, 'abcdef0123456789')
+    l2 = Label(width, 0.5, 'Bottom label')
 
-    sp1 = Spacer(3,0.25)
+    le2 = LineEdit(width, 0.5, 'abcdef0123456789')
 
-    cb = ComboBox(3, 0.5, ['one', 'two', 'three'])
+    sp1 = Spacer(width, 0.25)
 
-    sp2 = Spacer(3, 3)
+    def on_combo_selected(index, text):
+        print("Combo box selection: %d, %s" % (index, text))
+
+    cb = ComboBox(
+        width, 0.5, ['one', 'two', 'three'],
+        selection_notify = on_combo_selected
+    )
+
+    sp2 = Spacer(width, 3)
 
     vbox = VBox()
 
     vbox.append(l1, le1, l2, le2, sp1, cb, sp2)
 
-    w = Window(vbox, 'Text Demo')
+    w = Window(vbox, 'Text Demo (Experimental Work In Progress!)')
 
     plt.show()
 

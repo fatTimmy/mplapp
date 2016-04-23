@@ -8,7 +8,7 @@ from matplotlib.patches import Rectangle
 import pyperclip
 
 
-from mplkit.label import Label
+from mplapp.label import Label
 
 
 # FIXME: need to create _change_state() to handle all the complex actions

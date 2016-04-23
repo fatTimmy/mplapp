@@ -2,7 +2,7 @@ import matplotlib
 from matplotlib.patches import Rectangle
 
 
-from mplkit.base import Base
+from mplapp.base import Base
 
 
 class Slider(Base):

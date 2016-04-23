@@ -1,4 +1,4 @@
-from mplkit.base import Base
+from mplapp.base import Base
 
 
 class HorizontalBox(Base):

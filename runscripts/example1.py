@@ -4,12 +4,12 @@ import matplotlib
 import matplotlib.pyplot as plt
 
 
-from mplkit.window import Window
-from mplkit.horizontal_box import HorizontalBox as HBox
-from mplkit.vertical_box import VerticalBox as VBox
-from mplkit.label import Label
-from mplkit.button import Button
-from mplkit.slider import Slider
+from mplapp.window import Window
+from mplapp.horizontal_box import HorizontalBox as HBox
+from mplapp.vertical_box import VerticalBox as VBox
+from mplapp.label import Label
+from mplapp.button import Button
+from mplapp.slider import Slider
 
 
 def main():
