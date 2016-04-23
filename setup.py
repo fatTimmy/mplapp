@@ -6,7 +6,7 @@ widgets implemented with Matplotlib artists.
 
 See https://github.com/weegreenblobbie/mplapp
 """
-
+import sys
 from setuptools import setup, Extension
 
 # pypi.rst processing
@@ -35,6 +35,11 @@ An GUI toolkit for creating interactive applications with a set of GUI neutral
 widgets implemented with Matplotlib artists.
 """
 
+install_requires = ['matplotlib', 'numpy', 'pyperclip']
+
+if sys.version_info < (3, 0):
+    install_requires.append('enum34')
+
 import mplapp
 
 setup(
@@ -50,5 +55,5 @@ setup(
     scripts          = [],
     url              = "https://github.com/weegreenblobbie/mplapp",
     version          = mplapp.__version__,
-    install_requires = ['enum', 'matplotlib', 'numpy', 'pyperclip'],
+    install_requires = install_requires,
 )
