@@ -1,10 +1,8 @@
-mplkit
+mplapp
 ======
 
-A GUI toolkit for creating a small set of widgets using Matplotlib.  It mostly
-aims at providing widget layout with horizontal and vertical boxes and should
-have the same look and feel, as well as API, regardless of the Matplotlib
-backend in use.
+An GUI toolkit for creating interactive applications with a set of GUI neutral
+widgets implemented with Matplotlib artists.
 
 Widgets
 =======
