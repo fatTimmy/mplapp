@@ -327,9 +327,6 @@ class LineEdit(Label):
 
     def _on_key_press(self, event):
 
-#~        if event.inaxes != self._axes:
-#~            return
-
         # FIXME: ignore if disabled
 
         if self._state == State.IDLE:

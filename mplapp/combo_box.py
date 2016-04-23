@@ -147,7 +147,7 @@ class ComboBox(LineEdit):
         self._axes.add_patch(patch)
 
 
-    def _change_state(self, new_state):
+    def _cb_change_state(self, new_state):
 
         if self._cb_state == new_state:
             raise RuntimeError("Already in state %s" % new_state)
@@ -199,7 +199,7 @@ class ComboBox(LineEdit):
                     'motion_notify_event', self._on_mouse_motion
                 )
 
-                self._axes.figure.canvas.draw()
+                self.canvas().draw()
 
             else: self._unhandled_state(new_state)
 
@@ -207,7 +207,7 @@ class ComboBox(LineEdit):
 
             if new_state == ComboState.IDLE:
                 self._select_axes.set_visible(False)
-                self._axes.figure.canvas.draw()
+                self.canvas().draw()
 
             else: self._unhandled_state(new_state)
 
@@ -223,22 +223,27 @@ class ComboBox(LineEdit):
 
     def _on_mouse_down(self, event):
 
+        if event.inaxes not in [self._axes, self._select_axes]:
+            self._ignore_edit_notify = True
+            if self._cb_state != ComboState.IDLE:
+                self._cb_change_state(ComboState.IDLE)
+            super(ComboBox, self)._on_mouse_down(event)
+            return
+
         x, y = event.xdata, event.ydata
 
         if x is None or y is None:
+            super(ComboBox, self)._on_mouse_down(event)
             return
 
         if self._cb_state == ComboState.IDLE:
-
-            if event.inaxes != self._axes:
-                return
 
             cx = self._select_posx
 
             d = np.sqrt( (x - cx) ** 2 )
 
             if d <= 0.16:
-                self._change_state(ComboState.DROP_SELECT)
+                self._cb_change_state(ComboState.DROP_SELECT)
 
             else:
                 super(ComboBox, self)._on_mouse_down(event)
@@ -258,7 +263,7 @@ class ComboBox(LineEdit):
             if self._selection_notify:
                 self._selection_notify(idx, selection)
 
-            self._change_state(ComboState.IDLE)
+            self._cb_change_state(ComboState.IDLE)
 
         elif _DEV:
             print("on_mouse_down(): unhandled %s" % self._cb_state)
@@ -282,7 +287,17 @@ class ComboBox(LineEdit):
 
             self._select_highlight.set_y(y - self._height / 2.0)
 
-            self._select_axes.figure.canvas.draw()
+            self.canvas().draw()
+
+
+    def _on_key_press(self, event):
+
+        if event.key == 'escape' and self._cb_state == ComboState.DROP_SELECT:
+            self._cb_change_state(ComboState.IDLE)
+
+        self._ignore_edit_notify = False
+
+        super(ComboBox, self)._on_key_press(event)
 
 
     def _find_text_entry(self, y):
@@ -307,6 +322,8 @@ class ComboBox(LineEdit):
         if self._ignore_edit_notify:
             self._ignore_edit_notify = False
             return
+
+        # add to the list
 
         self._text_list.append(text)
 
