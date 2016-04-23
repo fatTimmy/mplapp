@@ -489,6 +489,9 @@ class LineEdit(Label):
             self._state = State.DOUBLE_CLICK
             self._select_all()
 
+        elif key == 'ctrl':
+            pass
+
         else:
             print(
                 "unhandled key while in state %s: = %s" % (
