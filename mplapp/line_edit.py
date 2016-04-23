@@ -151,9 +151,7 @@ class LineEdit(Label):
     def _start_typing(self, x_pixel):
 
         if self._state == State.SELECTING:
-
             x = _search_text(self._text, x_pixel, 'pixel')[1]
-
             width = x - self._hl_x0
             self._highlight.set_width(width)
 
@@ -181,7 +179,7 @@ class LineEdit(Label):
                 rcParams[key] = self._rc_keys_disabled[key]
 
 
-    def _start_selecting(self, x_pixel = None):
+    def _start_selecting(self, x_pixel = None, x0 = None, width = 0):
 
         self._state = State.SELECTING
 
@@ -191,6 +189,9 @@ class LineEdit(Label):
 
             self._hl_x0 = x
 
+        elif x0:
+            self._hl_x0 = x0
+
         else:
             x = self._cursor.get_data()[0]
             self._hl_x0 = x[0]
@@ -199,15 +200,16 @@ class LineEdit(Label):
 
             pos = self._hl_x0, 0
 
-            r = Rectangle(pos, 0, 1, ec = self._hl_color, fc = self._hl_color)
+            r = Rectangle(pos, width, 1, ec = self._hl_color, fc = self._hl_color)
 
             self._highlight = r
 
             self._axes.add_patch(r)
 
         else:
+
             self._highlight.set_x(self._hl_x0)
-            self._highlight.set_width(0)
+            self._highlight.set_width(width)
             self._highlight.set_visible(True)
 
         self.canvas().draw()
@@ -221,11 +223,41 @@ class LineEdit(Label):
             self.canvas().draw()
 
 
+    def _select_all(self):
+
+        n_chars = len(self.text())
+
+        _, x0 = _search_text(self._text, 0, 'index')
+        _, x1 = _search_text(self._text, n_chars, 'index')
+
+        self._hl_x0 = x0
+        width = x1 - x0
+
+        if self._highlight is None:
+
+            pos = self._hl_x0, 0
+
+            r = Rectangle(pos, width, 1, ec = self._hl_color, fc = self._hl_color)
+
+            self._highlight = r
+
+            self._axes.add_patch(r)
+
+        else:
+
+            self._highlight.set_x(self._hl_x0)
+            self._highlight.set_width(width)
+            self._highlight.set_visible(True)
+
+        self._render_cursor(n_chars, 'index')
+
+
     def _on_mouse_down(self, event):
 
         # FIXME: add enable/disable flags
 
         if event.inaxes != self._axes:
+            self._stop_selecting()
             self._stop_typing('enter')
             return
 
@@ -247,22 +279,19 @@ class LineEdit(Label):
 
         if event.dblclick:
 
-            self._cursor_idx = 0
-
-            self._render_cursor(self._cursor_idx, 'index')
-
-            self._cursor_idx = len(self.text())
-
-            self._render_cursor(self._cursor_idx, 'index')
-
-            self._state = State.TYPING
+            self._state = State.DOUBLE_CLICK
+            self._select_all()
 
         else:
+
             self._stop_selecting()
             self._start_selecting(event.x)
 
 
     def _on_mouse_up(self, event):
+
+        if event.inaxes != self._axes:
+            return
 
         if self._state == State.SELECTING:
             self._start_typing(event.x)
@@ -297,6 +326,9 @@ class LineEdit(Label):
 
 
     def _on_key_press(self, event):
+
+#~        if event.inaxes != self._axes:
+#~            return
 
         # FIXME: ignore if disabled
 
@@ -453,12 +485,22 @@ class LineEdit(Label):
 
             self._stop_selecting()
 
+        elif key == 'ctrl+a':
+            self._state = State.DOUBLE_CLICK
+            self._select_all()
+
         else:
-#~            print "unhandled = ", repr(key)
-            pass
+            print(
+                "unhandled key while in state %s: = %s" % (
+                    self._state, repr(key)
+                )
+            )
 
 
     def _on_key_release(self, event):
+
+        if event.inaxes != self._axes:
+            return
 
         key = event.key
 
@@ -521,6 +563,7 @@ class State(enum.Enum):
     IDLE = 0
     TYPING = 1
     SELECTING = 2
+    DOUBLE_CLICK = 3
 
 
 #------------------------------------------------------------------------------
