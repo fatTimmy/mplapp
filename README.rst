@@ -41,6 +41,7 @@ Example 2: An interactive plot with 2 sliders
 
 
 Example 3: Line Edits that you can select & copy-n-paste text!
+--------------------------------------------------------------
 
 .. code-block:: console
 
