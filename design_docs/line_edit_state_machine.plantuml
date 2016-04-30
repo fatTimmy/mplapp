@@ -1,0 +1,27 @@
+@startuml
+
+[*] --> IDLE
+
+state "Active" as S0 {
+
+    state SELECTING
+    state SELECTED
+    state TYPING
+
+    SELECTING --> SELECTED : 'shift' key up,\nmouse button up
+
+    SELECTED --> TYPING : 'ctrl+x', normal key down
+
+    TYPING --> SELECTED : 'ctrl+a'
+    TYPING --> SELECTING : 'shift+left',\n'shift+right',\n'shift+home',\n'shift+end'
+
+}
+
+IDLE --> SELECTED : double   \nclick
+IDLE --> SELECTING : mouse button down in-axes
+
+S0 --> IDLE : 'escape',\n'enter',\nmouse button\ndown off-axes
+
+
+
+@enduml
