@@ -1,3 +1,5 @@
+import sys
+
 import enum
 
 import numpy as np
@@ -11,8 +13,20 @@ import pyperclip
 from mplapp.label import Label
 
 
-# FIXME: need to create _change_state() to handle all the complex actions
-#        when switching state, currently the code is too complex.
+# debug print
+
+def dout_enabled(fmt, *args):
+    print(fmt % args)
+
+
+def dout_disabled(fmt, *args):
+    pass
+
+
+_DEV = True
+
+
+dout = dout_enabled if _DEV else dout_disabled
 
 
 class LineEdit(Label):
@@ -20,13 +34,13 @@ class LineEdit(Label):
     A text label.
     """
 
-    def __init__(self, width, height, text, notify = None, **kwargs):
+    def __init__(self, width, height, text, notify = None, debug = False, **kwargs):
 
         self._str = text
         self._width = float(width)
         self._height = float(height)
-
         self._state = State.IDLE
+        self._debug = debug
 
         # defaults
         ec = 'black'
@@ -86,7 +100,7 @@ class LineEdit(Label):
         self._rc_keys_disabled = {}
 
         self._cursor = None
-        self._orig_text = None
+        self._cursor_idx = None
         self._highlight = None
 
 
@@ -131,7 +145,6 @@ class LineEdit(Label):
         # first time rending cursor?
 
         if self._cursor is None:
-
             color = self._text.get_color()
             self._cursor = self._axes.axvline(xdata, 0.1, 0.9, color = color)
 
@@ -145,26 +158,109 @@ class LineEdit(Label):
             width = xdata - self._hl_x0
             self._highlight.set_width(width)
 
+
+    def _change_state(self, new_state, **kwargs):
+
+        if self._debug:
+            dout('state transition %s --> %s: kwargs=%s', self._state, new_state, repr(kwargs))
+
+#~        if new_state == self._state:
+#~            raise RuntimeError("already in state %s" % self._state)
+
+        if self._state == State.IDLE:
+
+            if new_state == State.SELECTED:
+                self._select_all()
+
+            elif new_state == State.SELECTING:
+                self._start_selecting(**kwargs)
+
+            else:
+                self._unhandled_state_transition(new_state)
+
+        elif self._state == State.SELECTING:
+
+            if new_state == State.TYPING:
+                self._stop_selecting()
+                if 'x_pixel' in kwargs:
+                    self._render_cursor(kwargs['x_pixel'], 'pixel')
+
+            elif new_state == State.SELECTED:
+
+                i0, i1 = self._get_selected_range()
+
+                if 'x_pixel' in kwargs:
+
+                    dout("kwargs = %s", kwargs)
+
+                    self._render_cursor(kwargs['x_pixel'], 'pixel')
+
+                # nothing selected?
+
+                if i0 == i1:
+                    self._change_state(State.TYPING)
+                    return
+
+            else:
+                self._unhandled_state_transition(new_state)
+
+        elif self._state == State.SELECTED:
+
+            if new_state == State.TYPING:
+                if 'key' in kwargs:
+                    self._replace_selection(kwargs['key'])
+
+                self._highlight.set_visible(False)
+
+            else:
+                self._unhandled_state_transition(new_state)
+
+        elif self._state == State.TYPING:
+
+            if new_state == State.SELECTING:
+                self._start_selecting(**kwargs)
+
+        elif new_state == State.IDLE:
+            self._stop_selecting()
+            self._stop_typing('enter')
+
+        else:
+            self._unhandled_state_transition(new_state)
+
+        #----------------------------------------------------------------------
+        # change state and update canvas
+
+        self._state = new_state
+
         self.canvas().draw()
 
 
-    def _start_typing(self, x_pixel):
+    def _unhandled_state_transition(self, new_state):
 
-        if self._state == State.SELECTING:
-            x = _search_text(self._text, x_pixel, 'pixel')[1]
-            width = x - self._hl_x0
-            self._highlight.set_width(width)
+        raise RuntimeError(
+            'unhandled state transition %s --> %s' % (
+                self._state,
+                new_state,
+            )
+        )
 
-        self._state = State.TYPING
-        self._render_cursor(x_pixel, 'pixel')
 
-        if self._orig_text is None:
-            self._orig_text = str(self.text())
+    def _replace_selection(self, new_text):
+
+        i0, i1 = self._get_selected_range()
+
+        s = self.text()
+
+        s = s[0:i0] + new_text + s[i1:]
+
+        self.text(s)
+
+        self._render_cursor(i0 + len(new_text), 'index')
 
 
     def _stop_typing(self, key):
 
-        self._state = State.IDLE
+        dout('_stop_typing(%s)', repr(key))
 
         if self._cursor:
             self._cursor.set_visible(False)
@@ -181,13 +277,16 @@ class LineEdit(Label):
 
     def _start_selecting(self, x_pixel = None, x0 = None, width = 0):
 
-        self._state = State.SELECTING
+        dout('_start_selecting()')
 
         if x_pixel:
 
-            x = _search_text(self._text, x_pixel, 'pixel')[1]
+            txt_idx, x = _search_text(self._text, x_pixel, 'pixel')
 
             self._hl_x0 = x
+
+            if self._cursor_idx is None:
+                self._render_cursor(x_pixel, 'pixel')
 
         elif x0:
             self._hl_x0 = x0
@@ -217,11 +316,8 @@ class LineEdit(Label):
 
     def _stop_selecting(self):
 
-        self._state = State.TYPING
-
         if self._highlight:
             self._highlight.set_visible(False)
-            self.canvas().draw()
 
 
     def _select_all(self):
@@ -255,57 +351,34 @@ class LineEdit(Label):
 
     def _on_mouse_down(self, event):
 
-        # FIXME: add enable/disable flags
-
-        if event.inaxes != self._axes:
-            self._stop_selecting()
-            self._stop_typing('enter')
-            return
-
         x, y = event.xdata, event.ydata
 
-        if x is None or y is None:
-            self._stop_typing('enter')
+        if (
+            event.inaxes != self._axes or
+            x is None or
+            y is None
+        ):
+            if self._state != State.IDLE:
+                self._change_state(State.IDLE)
             return
 
-        if self._state == State.IDLE:
-
-            # disable the default keymap
-
-            self._rc_keys_disabled = {}
-
-            for key in self._rc_keys_to_disable:
-                self._rc_keys_disabled[key] = rcParams[key]
-                rcParams[key] = []
+        dout('_on_mouse_down()')
 
         if event.dblclick:
-
-            self._state = State.DOUBLE_CLICK
-            self._select_all()
+            dout('    double click!')
+            self._change_state(State.SELECTED)
 
         else:
-
-            self._stop_selecting()
-            self._start_selecting(event.x)
+            dout('    normal click')
+            self._change_state(State.SELECTING, x_pixel = event.x)
 
 
     def _on_mouse_up(self, event):
 
-        if event.inaxes != self._axes:
+        if event.inaxes != self._axes or None in [event.xdata, event.ydata]:
             return
 
-        if self._state == State.SELECTING:
-            self._start_typing(event.x)
-            return
-
-        if event.inaxes != self._axes:
-            self._stop_typing('enter')
-            return
-
-        x, y = event.xdata, event.ydata
-
-        if x is None or y is None:
-            self._stop_typing('enter')
+        self._change_state(State.SELECTED, x_pixel = event.x)
 
 
     def _on_mouse_motion(self, event):
@@ -328,12 +401,12 @@ class LineEdit(Label):
 
     def _on_key_press(self, event):
 
-        # FIXME: ignore if disabled
-
         if self._state == State.IDLE:
             return
 
         key = event.key
+
+        dout("_on_key_press(%s): self._state = %s", key, self._state)
 
         if key is None:  # TAB key
             return
@@ -342,19 +415,27 @@ class LineEdit(Label):
 
         if len(key) == 1:
 
-            i0, i1 = self._get_selected_range()
+            if self._state in [State.SELECTING, State.SELECTED, State.TYPING]:
 
-            s = self.text()
+                dout("    inserting char '%s'", key)
 
-            s = s[0:i0] + key + s[i1:]
+                s = self.text()
 
-            self.text(s)
+                idx = self._cursor_idx
 
-            self._stop_selecting()
+                s = s[0:idx] + key + s[idx:]
 
-            self._cursor_idx = i0 + 1
+                self.text(s)
+                self._render_cursor(idx + 1, 'index')
 
-            self._render_cursor(self._cursor_idx, 'index')
+                if self._state != State.TYPING:
+                    self._change_state(State.TYPING)
+
+                else:
+                    self.canvas().draw()
+
+            if self._state != State.TYPING:
+                self._change_state(State.TYPING)
 
         elif key == 'backspace':
 
@@ -370,39 +451,39 @@ class LineEdit(Label):
 
             self.text(s)
 
-            self._cursor_idx -= 1
-
-            self._render_cursor(self._cursor_idx, 'index')
+            self._render_cursor(self._cursor_idx - 1, 'index')
 
         elif key == 'delete':
-
             self._do_delete()
+            self._change_state(State.TYPING)
 
         elif key == 'left':
-
-            if self._state != State.SELECTING:
-                self._stop_selecting()
 
             if self._cursor_idx == 0:
                 return
 
-            self._cursor_idx -= 1
+            self._render_cursor(self._cursor_idx - 1, 'index')
 
-            self._render_cursor(self._cursor_idx, 'index')
+            if self._state == State.SELECTED:
+                self._change_state(State.TYPING)
+
+            else:
+                self.canvas().draw()
 
         elif key == 'right':
-
-            if self._state != State.SELECTING:
-                self._stop_selecting()
 
             N = len(self.text())
 
             if self._cursor_idx == N:
                 return
 
-            self._cursor_idx += 1
+            self._render_cursor(self._cursor_idx + 1, 'index')
 
-            self._render_cursor(self._cursor_idx, 'index')
+            if self._state == State.SELECTED:
+                self._change_state(State.TYPING)
+
+            else:
+                self.canvas().draw()
 
         elif key == 'home':
 
@@ -415,6 +496,7 @@ class LineEdit(Label):
             self._cursor_idx = 0
 
             self._render_cursor(self._cursor_idx, 'index')
+            self.canvas().draw()
 
         elif key == 'end':
 
@@ -429,6 +511,7 @@ class LineEdit(Label):
             self._cursor_idx = N
 
             self._render_cursor(self._cursor_idx, 'index')
+            self.canvas().draw()
 
         elif key == 'enter':
             self._stop_typing(key)
@@ -436,14 +519,11 @@ class LineEdit(Label):
         elif key == 'escape':
             self._stop_selecting()
             self._stop_typing(key)
-            self.text(self._orig_text)
-            self._orig_text = None
             self._state = State.IDLE
 
         elif key == 'shift':
-
-            if not self._highlight.get_visible():
-                self._start_selecting()
+            if self._state not in [State.SELECTING, State.SELECTED]:
+                self._change_state(State.SELECTING)
 
         elif key in ['ctrl+c', 'ctrl+x']:
 
@@ -486,17 +566,16 @@ class LineEdit(Label):
             self._stop_selecting()
 
         elif key == 'ctrl+a':
-            self._state = State.DOUBLE_CLICK
             self._select_all()
+            self._change_state(State.SELECTED)
 
         elif key == 'ctrl':
             pass
 
         else:
-            print(
-                "unhandled key while in state %s: = %s" % (
-                    self._state, repr(key)
-                )
+            dout(
+                "unhandled key while in state %s: = %s",
+                self._state, repr(key)
             )
 
 
@@ -507,25 +586,25 @@ class LineEdit(Label):
 
         key = event.key
 
+        dout('_on_key_release(%s): state = %s', repr(key), self._state)
+
         if key == 'shift' and self._state == State.SELECTING:
-            self._state = State.TYPING
+
+            self._change_state(State.SELECTED)
 
 
     def _get_selected_range(self):
 
-        if self._highlight and self._highlight.get_visible():
+        assert self._highlight.get_visible()
 
-            start, end = self._highlight.get_window_extent().get_points()
+        start, end = self._highlight.get_window_extent().get_points()
 
-            x0, x1 = start[0], end[0]
+        x0, x1 = start[0], end[0]
 
-            i0, _ = _search_text(self._text, x0, 'pixel')
-            i1, _ = _search_text(self._text, x1, 'pixel')
+        i0, _ = _search_text(self._text, x0, 'pixel')
+        i1, _ = _search_text(self._text, x1, 'pixel')
 
-            return i0, i1
-
-        else:
-            return self._cursor_idx, self._cursor_idx
+        return i0, i1
 
 
     def _do_delete(self):
@@ -551,11 +630,120 @@ class LineEdit(Label):
         else:
             s = s[0:i0] + s[i1:]
 
-        if self._highlight:
-            self._stop_selecting()
+        self.text(s)
 
         self._render_cursor(self._cursor_idx, 'index')
-        self.text(s)
+
+
+#------------------------------------------------------------------------------
+# render text element and inspect the bounding box
+
+def _search_text(text, x, units):
+
+    dout("_search_text(x=%f, units=%s)", x, units)
+
+    char_pos = np.array(_get_text_positions(text))
+
+    if units == 'pixel':
+
+        dout("    subtracting float from np.array")
+
+        dist = np.abs(char_pos - float(x))
+
+        x_idx = np.round(dist).argmin()
+
+    elif units == 'index':
+        x_idx = x
+
+#~        dout("    char_pos = %s", char_pos)
+        dout("    len(char_pos) = %d", len(char_pos))
+        dout("    x_idx = %d", x_idx)
+
+    else:
+        raise ValueError('unknown unit %s' % repr(units))
+
+    assert x_idx >= 0
+    assert x_idx <= len(char_pos)
+
+    dout("    indexing into np.array")
+
+    x_pixel = char_pos[x_idx]
+
+    dout("    x_pixel = %f", x_pixel)
+
+    # now convert pixels to data units
+
+    pixel_to_data_transform = text.axes.transData.inverted()
+
+    xdata = pixel_to_data_transform.transform((x_pixel, 0))[0]
+
+    dout("    returning xdata=%f", xdata)
+
+    return x_idx, xdata
+
+
+def _get_text_positions(text):
+    '''
+    For each character in the text object, return a list pixel values for
+    the start of each character.
+
+    Note, this returns a list that is len(text) + 1, so that the end of the
+    last character can be determined.
+    '''
+
+    orig = text.get_text()
+
+    #--------------------------------------------------------------------------
+    # the backend render ignores leading trailing whitespace, so lets directly
+    # measure the width of a space
+
+    text.set_text('##')
+
+    bb = text.get_window_extent()
+
+    width0 = bb.width
+
+    text.set_text('# #')
+
+    bb = text.get_window_extent()
+
+    width1 = bb.width
+
+    space_width = width1 - width0
+
+    #--------------------------------------------------------------------------
+    # measure the position of each character
+
+    s = str(orig)
+
+    N = len(s)
+
+    x_positions = [bb.x0]
+
+    for i in range(1, N + 1):
+
+        txt = s[0:i]
+
+        text.set_text(txt)
+
+        bb = text.get_window_extent()
+
+        x = bb.x0 + bb.width
+
+        # adjust for spaces
+        if txt[0] == ' ':
+            x += space_width
+
+        if i > 0 and txt[-1] == ' ':
+            x += space_width
+
+        x_positions.append(x)
+
+    # restore text
+
+    text.set_text(orig)
+
+    return x_positions
 
 
 #------------------------------------------------------------------------------
@@ -566,118 +754,4 @@ class State(enum.Enum):
     IDLE = 0
     TYPING = 1
     SELECTING = 2
-    DOUBLE_CLICK = 3
-
-
-#------------------------------------------------------------------------------
-# render text element and inspect the bounding box
-
-def _search_text(text, x, units):
-
-    if units == 'pixel':
-        return _search_text_pixel(text, x)
-
-    elif units == 'index':
-        return _search_text_index(text, x)
-
-    else:
-        raise ValueError('unknown units "%s"' % units)
-
-
-def _search_text_pixel(text, x_pixel):
-
-    orig = text.get_text()
-
-    # the backend render ignores trailing spaces, so we'll replace them for our
-    # measurements
-
-    s = orig.replace(' ', ',')
-
-    N = len(s)
-
-    x_positions = []
-    delta = np.zeros((N + 1), dtype = np.float32)
-
-    for i in range(N+1):
-
-        txt = s[0:i]
-
-        text.set_text(txt)
-
-        bb = text.get_window_extent()
-
-        x_positions.append(bb)
-
-        start, end = bb.get_points()
-
-        x1 = end[0]
-
-        dist = float(x1) - float(x_pixel)
-
-        delta[i] = abs(dist)
-
-    # restore text
-    text.set_text(orig)
-
-    idx = delta.argmin()
-
-    bb = x_positions[idx]
-
-    # now convert pixels to data units
-
-    inv = text.axes.transData.inverted()
-    bb = inv.transform(bb)
-
-    start, end = bb
-
-    xdata = end[0]
-
-    return idx, xdata
-
-
-def _search_text_index(text, x_idx):
-
-    orig = text.get_text()
-
-    # the backend render ignores trailing spaces, so we'll replace them for our
-    # measurements
-
-    s = orig.replace(' ', ',')
-
-    N = len(s)
-
-    if x_idx < 0:
-        raise IndexError('x_idx < 0 (%d < 0)' % x_idx)
-
-    if x_idx > N:
-        raise IndexError('x_idx > N (%d > %d)' % (x_idx, N))
-
-    x_positions = []
-
-    for i in range(x_idx + 1):
-
-        txt = s[0:i]
-
-        text.set_text(txt)
-
-        bb = text.get_window_extent()
-
-        start, end = bb.get_points()
-
-        x_positions.append(bb)
-
-    # restore text
-    text.set_text(orig)
-
-    bb = x_positions[x_idx]
-
-    # now convert pixels to data units
-
-    inv = text.axes.transData.inverted()
-    bb = inv.transform(bb)
-
-    start, end = bb
-
-    xdata = end[0]
-
-    return x_idx, xdata
+    SELECTED = 3

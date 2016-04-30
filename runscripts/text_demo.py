@@ -20,27 +20,38 @@ def main():
 
     l1 = Label(width, 0.5, 'Top label')
 
-    le1 = LineEdit(width, 0.5, 'EditMe!')
-
-    l2 = Label(width, 0.5, 'Bottom label')
-
-    le2 = LineEdit(width, 0.5, 'abcdef0123456789')
-
-    sp1 = Spacer(width, 0.25)
-
-    def on_combo_selected(index, text):
-        print("Combo box selection: %d, %s" % (index, text))
-
-    cb = ComboBox(
-        width, 0.5, ['one', 'two', 'three'],
-        selection_notify = on_combo_selected
+    le1 = LineEdit(
+        width,
+        0.5,
+        'Using shift+arrow will select text, ctrl+a works too!',
+        debug = True,
     )
 
-    sp2 = Spacer(width, 3)
+#~    l2 = Label(width, 0.5, 'Bottom label')
+
+#~    le2 = LineEdit(
+#~        width,
+#~        0.5,
+#~        'Click+moving the mouse selects text, double click sleects all'
+#~    )
+
+#~    sp1 = Spacer(width, 0.25)
+
+#~    def on_combo_selected(index, text):
+#~        print("Combo box selection: %d, %s" % (index, text))
+
+#~    cb = ComboBox(
+#~        width, 0.5, ['one', 'two', 'three'],
+#~        selection_notify = on_combo_selected
+#~    )
+
+#~    sp2 = Spacer(width, 3)
 
     vbox = VBox()
 
-    vbox.append(l1, le1, l2, le2, sp1, cb, sp2)
+#~    vbox.append(l1, le1, l2, le2, sp1, cb, sp2)
+
+    vbox.append(l1, le1)
 
     w = Window(vbox, 'Text Demo (Experimental Work In Progress!)')
 
