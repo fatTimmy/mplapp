@@ -1,3 +1,5 @@
+import sys
+
 import enum
 
 import numpy as np
@@ -11,13 +13,28 @@ import pyperclip
 from mplapp.label import Label
 
 
+# debug print
+
+def dout_enabled(fmt, *args):
+    print(fmt % args)
+
+
+def dout_disabled(fmt, *args):
+    pass
+
+
+_DEV = True
+
+
+dout = dout_enabled if _DEV else dout_disabled
+
+
 class LineEdit(Label):
     """
     A text label.
     """
 
     def __init__(self, width, height, text, notify = None, debug = False, **kwargs):
-
 
         self._str = text
         self._width = float(width)
@@ -128,7 +145,6 @@ class LineEdit(Label):
         # first time rending cursor?
 
         if self._cursor is None:
-
             color = self._text.get_color()
             self._cursor = self._axes.axvline(xdata, 0.1, 0.9, color = color)
 
@@ -146,7 +162,10 @@ class LineEdit(Label):
     def _change_state(self, new_state, **kwargs):
 
         if self._debug:
-            print('state transition %s --> %s: kwargs=%s' % (self._state, new_state, repr(kwargs)))
+            dout('state transition %s --> %s: kwargs=%s', self._state, new_state, repr(kwargs))
+
+#~        if new_state == self._state:
+#~            raise RuntimeError("already in state %s" % self._state)
 
         if self._state == State.IDLE:
 
@@ -172,7 +191,7 @@ class LineEdit(Label):
 
                 if 'x_pixel' in kwargs:
 
-                    print "kwargs = ", kwargs
+                    dout("kwargs = %s", kwargs)
 
                     self._render_cursor(kwargs['x_pixel'], 'pixel')
 
@@ -188,7 +207,9 @@ class LineEdit(Label):
         elif self._state == State.SELECTED:
 
             if new_state == State.TYPING:
-                self._replace_selection(kwargs['key'])
+                if 'key' in kwargs:
+                    self._replace_selection(kwargs['key'])
+
                 self._highlight.set_visible(False)
 
             else:
@@ -239,7 +260,7 @@ class LineEdit(Label):
 
     def _stop_typing(self, key):
 
-        print('_stop_typing(%s)' % repr(key))
+        dout('_stop_typing(%s)', repr(key))
 
         if self._cursor:
             self._cursor.set_visible(False)
@@ -256,7 +277,7 @@ class LineEdit(Label):
 
     def _start_selecting(self, x_pixel = None, x0 = None, width = 0):
 
-        print('_start_selecting()')
+        dout('_start_selecting()')
 
         if x_pixel:
 
@@ -341,10 +362,14 @@ class LineEdit(Label):
                 self._change_state(State.IDLE)
             return
 
+        dout('_on_mouse_down()')
+
         if event.dblclick:
+            dout('    double click!')
             self._change_state(State.SELECTED)
 
         else:
+            dout('    normal click')
             self._change_state(State.SELECTING, x_pixel = event.x)
 
 
@@ -381,7 +406,7 @@ class LineEdit(Label):
 
         key = event.key
 
-        print "_on_key_press(%s): self._state = %s" %(key, self._state)
+        dout("_on_key_press(%s): self._state = %s", key, self._state)
 
         if key is None:  # TAB key
             return
@@ -389,10 +414,10 @@ class LineEdit(Label):
         # normal keys are length 1
 
         if len(key) == 1:
-            if self._state != State.TYPING:
-                self._change_state(State.TYPING, key = key)
 
-            else:
+            if self._state in [State.SELECTING, State.SELECTED, State.TYPING]:
+
+                dout("    inserting char '%s'", key)
 
                 s = self.text()
 
@@ -402,6 +427,15 @@ class LineEdit(Label):
 
                 self.text(s)
                 self._render_cursor(idx + 1, 'index')
+
+                if self._state != State.TYPING:
+                    self._change_state(State.TYPING)
+
+                else:
+                    self.canvas().draw()
+
+            if self._state != State.TYPING:
+                self._change_state(State.TYPING)
 
         elif key == 'backspace':
 
@@ -420,38 +454,36 @@ class LineEdit(Label):
             self._render_cursor(self._cursor_idx - 1, 'index')
 
         elif key == 'delete':
-
             self._do_delete()
+            self._change_state(State.TYPING)
 
         elif key == 'left':
-
-            if self._state != State.SELECTING:
-                self._stop_selecting()
 
             if self._cursor_idx == 0:
                 return
 
-            self._cursor_idx -= 1
+            self._render_cursor(self._cursor_idx - 1, 'index')
 
-            self._render_cursor(self._cursor_idx, 'index')
-            self.canvas().draw()
+            if self._state == State.SELECTED:
+                self._change_state(State.TYPING)
+
+            else:
+                self.canvas().draw()
 
         elif key == 'right':
-
-            print "self._state = ", self._state
-
-            if self._state != State.SELECTING:
-                self._stop_selecting()
 
             N = len(self.text())
 
             if self._cursor_idx == N:
                 return
 
-            self._cursor_idx += 1
+            self._render_cursor(self._cursor_idx + 1, 'index')
 
-            self._render_cursor(self._cursor_idx, 'index')
-            self.canvas().draw()
+            if self._state == State.SELECTED:
+                self._change_state(State.TYPING)
+
+            else:
+                self.canvas().draw()
 
         elif key == 'home':
 
@@ -534,16 +566,16 @@ class LineEdit(Label):
             self._stop_selecting()
 
         elif key == 'ctrl+a':
+            self._select_all()
             self._change_state(State.SELECTED)
 
         elif key == 'ctrl':
             pass
 
         else:
-            print(
-                "unhandled key while in state %s: = %s" % (
-                    self._state, repr(key)
-                )
+            dout(
+                "unhandled key while in state %s: = %s",
+                self._state, repr(key)
             )
 
 
@@ -554,7 +586,10 @@ class LineEdit(Label):
 
         key = event.key
 
+        dout('_on_key_release(%s): state = %s', repr(key), self._state)
+
         if key == 'shift' and self._state == State.SELECTING:
+
             self._change_state(State.SELECTED)
 
 
@@ -595,11 +630,9 @@ class LineEdit(Label):
         else:
             s = s[0:i0] + s[i1:]
 
-        if self._highlight:
-            self._stop_selecting()
+        self.text(s)
 
         self._render_cursor(self._cursor_idx, 'index')
-        self.text(s)
 
 
 #------------------------------------------------------------------------------
@@ -607,11 +640,13 @@ class LineEdit(Label):
 
 def _search_text(text, x, units):
 
-    print("_search_text(x=%f, units=%s)" % (x, units))
+    dout("_search_text(x=%f, units=%s)", x, units)
 
     char_pos = np.array(_get_text_positions(text))
 
     if units == 'pixel':
+
+        dout("    subtracting float from np.array")
 
         dist = np.abs(char_pos - float(x))
 
@@ -620,16 +655,29 @@ def _search_text(text, x, units):
     elif units == 'index':
         x_idx = x
 
+#~        dout("    char_pos = %s", char_pos)
+        dout("    len(char_pos) = %d", len(char_pos))
+        dout("    x_idx = %d", x_idx)
+
     else:
         raise ValueError('unknown unit %s' % repr(units))
 
+    assert x_idx >= 0
+    assert x_idx <= len(char_pos)
+
+    dout("    indexing into np.array")
+
     x_pixel = char_pos[x_idx]
+
+    dout("    x_pixel = %f", x_pixel)
 
     # now convert pixels to data units
 
     pixel_to_data_transform = text.axes.transData.inverted()
 
     xdata = pixel_to_data_transform.transform((x_pixel, 0))[0]
+
+    dout("    returning xdata=%f", xdata)
 
     return x_idx, xdata
 
