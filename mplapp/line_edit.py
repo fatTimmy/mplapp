@@ -232,6 +232,10 @@ class LineEdit(Label):
             elif new_state == State.SELECTING:
                 self._stop_selecting()
 
+            elif new_state == State.IDLE:
+                self._stop_selecting()
+                self._cursor.set_visible(False)
+
             else:
                 self._unhandled_state_transition(new_state)
 

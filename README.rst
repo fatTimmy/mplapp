@@ -27,6 +27,10 @@ Example 1: Some labels and buttons with horizontal and vertical boxes
 
     $ PYTHONPATH=`pwd` python runscripts/example1.py
 
+    # OR
+
+    $ pith runscripts/example1.py
+
 .. image:: example1.jpg
 
 
@@ -37,6 +41,10 @@ Example 2: An interactive plot with 2 sliders
 
     $ PYTHONPATH=`pwd` python runscripts/gaussian_demo.py
 
+    # OR
+
+    $ pith runscripts/gaussian_demo.py
+
 .. image:: example2.png
 
 
@@ -45,6 +53,10 @@ Example 3: Line Edits that you can select & copy-n-paste text!
 
 .. code-block:: console
 
-    $ PYTHONPATH=`pwd` python runscripts/gaussian_demo.py
+    $ PYTHONPATH=`pwd` python runscripts/text_demo.py
+
+    # OR
+
+    $ pith runscripts/text_demo.py
 
 .. image:: example3.png
