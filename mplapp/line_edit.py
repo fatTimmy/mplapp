@@ -4,7 +4,6 @@ import enum
 
 import numpy as np
 
-from matplotlib import rcParams
 from matplotlib.patches import Rectangle
 
 import pyperclip
@@ -13,7 +12,8 @@ import pyperclip
 from mplapp.label import Label
 
 
-# debug print
+#------------------------------------------------------------------------------
+# for debugging
 
 def dout_enabled(fmt, *args):
     print(fmt % args)
@@ -22,11 +22,11 @@ def dout_enabled(fmt, *args):
 def dout_disabled(fmt, *args):
     pass
 
+#~dout = dout_enabled
+dout = dout_disabled
 
-_DEV = True
-
-
-dout = dout_enabled if _DEV else dout_disabled
+class Count(object):
+    count = 0
 
 
 class LineEdit(Label):
@@ -34,13 +34,16 @@ class LineEdit(Label):
     A text label.
     """
 
-    def __init__(self, width, height, text, notify = None, debug = False, **kwargs):
+    def __init__(self, width, height, text, notify = None, **kwargs):
 
         self._str = text
         self._width = float(width)
         self._height = float(height)
         self._state = State.IDLE
-        self._debug = debug
+
+        self._dbg_name = 'LE%d' % Count.count
+
+        Count.count += 1
 
         # defaults
         ec = 'black'
@@ -88,16 +91,6 @@ class LineEdit(Label):
 
         self._axes = None
         self._colors = ()
-
-        # Capture keymap to be disabled
-
-        self._rc_keys_to_disable = []
-
-        for key in rcParams.keys():
-            if u'keymap' in key:
-                self._rc_keys_to_disable.append(key)
-
-        self._rc_keys_disabled = {}
 
         self._cursor = None
         self._cursor_idx = None
@@ -161,8 +154,22 @@ class LineEdit(Label):
 
     def _change_state(self, new_state, **kwargs):
 
-        if self._debug:
-            dout('state transition %s --> %s: kwargs=%s', self._state, new_state, repr(kwargs))
+        if self._state == new_state:
+            dout(
+                "%s._change_state(%s): already in state %s, ignoring",
+                self._dbg_name,
+                new_state,
+                self._state,
+            )
+            return
+
+        dout(
+            '%s._change_state(): state transition %s --> %s: kwargs=%s',
+            self._dbg_name,
+            self._state,
+            new_state,
+            repr(kwargs),
+        )
 
 #~        if new_state == self._state:
 #~            raise RuntimeError("already in state %s" % self._state)
@@ -187,19 +194,29 @@ class LineEdit(Label):
 
             elif new_state == State.SELECTED:
 
-                i0, i1 = self._get_selected_range()
-
                 if 'x_pixel' in kwargs:
 
-                    dout("kwargs = %s", kwargs)
+                    dout("%s: kwargs = %s", self._dbg_name, kwargs)
 
                     self._render_cursor(kwargs['x_pixel'], 'pixel')
 
                 # nothing selected?
 
-                if i0 == i1:
+                if self._highlight.get_visible() is False:
                     self._change_state(State.TYPING)
                     return
+
+                else:
+                    i0, i1 = self._get_selected_range()
+
+                    if i0 == i1:
+                        self._change_state(State.TYPING)
+                        return
+
+            elif new_state == State.IDLE:
+                self._stop_selecting()
+                key = kwargs.get('key', None)
+                self._stop_typing(key)
 
             else:
                 self._unhandled_state_transition(new_state)
@@ -212,6 +229,13 @@ class LineEdit(Label):
 
                 self._highlight.set_visible(False)
 
+            elif new_state == State.SELECTING:
+                self._stop_selecting()
+
+            elif new_state == State.IDLE:
+                self._stop_selecting()
+                self._cursor.set_visible(False)
+
             else:
                 self._unhandled_state_transition(new_state)
 
@@ -219,6 +243,15 @@ class LineEdit(Label):
 
             if new_state == State.SELECTING:
                 self._start_selecting(**kwargs)
+
+            elif new_state == State.SELECTED:
+                pass
+
+            elif new_state == State.IDLE:
+                self._stop_typing()
+
+            else:
+                self._unhandled_state_transition(new_state)
 
         elif new_state == State.IDLE:
             self._stop_selecting()
@@ -238,7 +271,8 @@ class LineEdit(Label):
     def _unhandled_state_transition(self, new_state):
 
         raise RuntimeError(
-            'unhandled state transition %s --> %s' % (
+            '%s: unhandled state transition %s --> %s' % (
+                self._dbg_name,
                 self._state,
                 new_state,
             )
@@ -247,7 +281,13 @@ class LineEdit(Label):
 
     def _replace_selection(self, new_text):
 
-        i0, i1 = self._get_selected_range()
+        if self._highlight.get_visible():
+
+            i0, i1 = self._get_selected_range()
+
+        else:
+            i0 = self._cursor_idx
+            i1 = i0
 
         s = self.text()
 
@@ -258,9 +298,9 @@ class LineEdit(Label):
         self._render_cursor(i0 + len(new_text), 'index')
 
 
-    def _stop_typing(self, key):
+    def _stop_typing(self, key = None):
 
-        dout('_stop_typing(%s)', repr(key))
+        dout('%s._stop_typing(%s)', self._dbg_name, repr(key))
 
         if self._cursor:
             self._cursor.set_visible(False)
@@ -269,15 +309,15 @@ class LineEdit(Label):
         if self._notify and key == 'enter':
             self._notify(self.text())
 
-            # restore default keymap
+#~            # restore default keymap
 
-            for key in self._rc_keys_disabled:
-                rcParams[key] = self._rc_keys_disabled[key]
+#~            for key in self._rc_keys_disabled:
+#~                rcParams[key] = self._rc_keys_disabled[key]
 
 
     def _start_selecting(self, x_pixel = None, x0 = None, width = 0):
 
-        dout('_start_selecting()')
+        dout('%s._start_selecting()', self._dbg_name)
 
         if x_pixel:
 
@@ -350,26 +390,32 @@ class LineEdit(Label):
 
 
     def _on_mouse_down(self, event):
+        """
+        Currently, click on a line edit, will dispatch an event to all widgets
+        with 'button_press_event' callbacks.
+
+        This this callback is called whenever a wiget is clicked.
+
+        For a line edit, if the click didn't occur inside it's axes, transition
+        to IDLE, else, transition to SELECTING/SELECTED.
+        """
 
         x, y = event.xdata, event.ydata
 
-        if (
-            event.inaxes != self._axes or
-            x is None or
-            y is None
-        ):
+        if event.inaxes != self._axes or None in [x, y]:
             if self._state != State.IDLE:
                 self._change_state(State.IDLE)
             return
 
-        dout('_on_mouse_down()')
+        dout('%s._on_mouse_down()', self._dbg_name)
 
         if event.dblclick:
-            dout('    double click!')
+            dout('    %s: double click!', self._dbg_name)
+            self._select_all()
             self._change_state(State.SELECTED)
 
         else:
-            dout('    normal click')
+            dout('    %s: normal click', self._dbg_name)
             self._change_state(State.SELECTING, x_pixel = event.x)
 
 
@@ -383,12 +429,9 @@ class LineEdit(Label):
 
     def _on_mouse_motion(self, event):
 
-        if event.inaxes != self._axes:
-            return
-
         x, y = event.xdata, event.ydata
 
-        if x is None or y is None:
+        if event.inaxes != self._axes or None in [x, y]:
             return
 
         if self._state != State.SELECTING:
@@ -406,7 +449,12 @@ class LineEdit(Label):
 
         key = event.key
 
-        dout("_on_key_press(%s): self._state = %s", key, self._state)
+        dout(
+            "%s._on_key_press(%s): self._state = %s",
+            self._dbg_name,
+            key,
+            self._state,
+        )
 
         if key is None:  # TAB key
             return
@@ -417,16 +465,9 @@ class LineEdit(Label):
 
             if self._state in [State.SELECTING, State.SELECTED, State.TYPING]:
 
-                dout("    inserting char '%s'", key)
+                dout("    %s: inserting char '%s'", self._dbg_name, key)
 
-                s = self.text()
-
-                idx = self._cursor_idx
-
-                s = s[0:idx] + key + s[idx:]
-
-                self.text(s)
-                self._render_cursor(idx + 1, 'index')
+                self._replace_selection(key)
 
                 if self._state != State.TYPING:
                     self._change_state(State.TYPING)
@@ -574,19 +615,23 @@ class LineEdit(Label):
 
         else:
             dout(
-                "unhandled key while in state %s: = %s",
-                self._state, repr(key)
+                "%s: unhandled key while in state %s: = %s",
+                self._dbg_name,
+                self._state,
+                repr(key),
             )
 
 
     def _on_key_release(self, event):
 
-        if event.inaxes != self._axes:
-            return
-
         key = event.key
 
-        dout('_on_key_release(%s): state = %s', repr(key), self._state)
+        dout(
+            '%s._on_key_release(%s): state = %s',
+            self._dbg_name,
+            repr(key),
+            self._state,
+        )
 
         if key == 'shift' and self._state == State.SELECTING:
 
@@ -640,13 +685,13 @@ class LineEdit(Label):
 
 def _search_text(text, x, units):
 
-    dout("_search_text(x=%f, units=%s)", x, units)
+#~    dout("_search_text(x=%f, units=%s)", x, units)
 
     char_pos = np.array(_get_text_positions(text))
 
     if units == 'pixel':
 
-        dout("    subtracting float from np.array")
+#~        dout("    subtracting float from np.array")
 
         dist = np.abs(char_pos - float(x))
 
@@ -655,9 +700,8 @@ def _search_text(text, x, units):
     elif units == 'index':
         x_idx = x
 
-#~        dout("    char_pos = %s", char_pos)
-        dout("    len(char_pos) = %d", len(char_pos))
-        dout("    x_idx = %d", x_idx)
+#~        dout("    len(char_pos) = %d", len(char_pos))
+#~        dout("    x_idx = %d", x_idx)
 
     else:
         raise ValueError('unknown unit %s' % repr(units))
@@ -665,11 +709,11 @@ def _search_text(text, x, units):
     assert x_idx >= 0
     assert x_idx <= len(char_pos)
 
-    dout("    indexing into np.array")
+#~    dout("    indexing into np.array")
 
     x_pixel = char_pos[x_idx]
 
-    dout("    x_pixel = %f", x_pixel)
+#~    dout("    x_pixel = %f", x_pixel)
 
     # now convert pixels to data units
 
@@ -677,7 +721,7 @@ def _search_text(text, x, units):
 
     xdata = pixel_to_data_transform.transform((x_pixel, 0))[0]
 
-    dout("    returning xdata=%f", xdata)
+#~    dout("    returning xdata=%f", xdata)
 
     return x_idx, xdata
 

@@ -1,4 +1,5 @@
 
+from matplotlib import rcParams
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 
@@ -48,3 +49,15 @@ class Window(object):
 
         # restore default rcparams
         mpl.rcParams['toolbar'] = orig_toolbar_settig
+
+        #----------------------------------------------------------------------
+        # disable the default keymap
+
+        self._rc_keys_to_disable = []
+
+        for key in rcParams.keys():
+            if u'keymap' in key:
+                self._rc_keys_to_disable.append(key)
+                rcParams[key] = ''
+
+        self._rc_keys_disabled = {}
