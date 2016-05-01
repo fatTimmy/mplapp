@@ -57,3 +57,20 @@ setup(
     version          = mplapp.__version__,
     install_requires = install_requires,
 )
+
+"""
+testpypi notes:
+
+Since the install_requires includes packages not in the testpypi server (enum23,
+matplotlib for sure), we need to install from the regular pypi server, but also
+include the testpypi URL in the list to lookup mplapp.
+
+So use this command:
+
+    pip install --extra-index-url https://testpypi.python.org/pypi --user mplapp
+
+Stackoverflow reference:
+
+    http://stackoverflow.com/questions/34514703/pip-install-from-pypi-works-but-from-testpypi-fails-cannot-find-requirements
+
+"""
