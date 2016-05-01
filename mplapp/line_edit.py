@@ -22,8 +22,8 @@ def dout_enabled(fmt, *args):
 def dout_disabled(fmt, *args):
     pass
 
-dout = dout_enabled
-#~dout = dout_disabled
+#~dout = dout_enabled
+dout = dout_disabled
 
 class Count(object):
     count = 0
@@ -194,8 +194,6 @@ class LineEdit(Label):
 
             elif new_state == State.SELECTED:
 
-                i0, i1 = self._get_selected_range()
-
                 if 'x_pixel' in kwargs:
 
                     dout("%s: kwargs = %s", self._dbg_name, kwargs)
@@ -204,9 +202,16 @@ class LineEdit(Label):
 
                 # nothing selected?
 
-                if i0 == i1:
+                if self._highlight.get_visible() is False:
                     self._change_state(State.TYPING)
                     return
+
+                else:
+                    i0, i1 = self._get_selected_range()
+
+                    if i0 == i1:
+                        self._change_state(State.TYPING)
+                        return
 
             elif new_state == State.IDLE:
                 self._stop_selecting()
@@ -223,6 +228,9 @@ class LineEdit(Label):
                     self._replace_selection(kwargs['key'])
 
                 self._highlight.set_visible(False)
+
+            elif new_state == State.SELECTING:
+                self._stop_selecting()
 
             else:
                 self._unhandled_state_transition(new_state)
@@ -269,7 +277,13 @@ class LineEdit(Label):
 
     def _replace_selection(self, new_text):
 
-        i0, i1 = self._get_selected_range()
+        if self._highlight.get_visible():
+
+            i0, i1 = self._get_selected_range()
+
+        else:
+            i0 = self._cursor_idx
+            i1 = i0
 
         s = self.text()
 
@@ -449,14 +463,7 @@ class LineEdit(Label):
 
                 dout("    %s: inserting char '%s'", self._dbg_name, key)
 
-                s = self.text()
-
-                idx = self._cursor_idx
-
-                s = s[0:idx] + key + s[idx:]
-
-                self.text(s)
-                self._render_cursor(idx + 1, 'index')
+                self._replace_selection(key)
 
                 if self._state != State.TYPING:
                     self._change_state(State.TYPING)
